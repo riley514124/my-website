@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<!--
+    interactive.html — 互動體驗頁面
+    =====================================================
+    學習重點：
+    1. p5.js Instance Mode（多個獨立 sketch）
+    2. 滑鼠互動（mouseX、mouseY、mousePressed）
+    3. 鍵盤互動（keyPressed、key、keyCode）
+    4. 3D WebGL 模式（createCanvas(w, h, WEBGL)）
+    5. 鏡頭影像（createCapture(VIDEO)）
+    6. calling-p5-js-from-javascript 模式
+       （HTML 按鈕呼叫 p5 sketch 的函式）
+    =====================================================
+-->
+<html lang="zh-Hant-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>互動體驗 — 龍蝦俠 新媒體藝術家</title>
+
+    <link rel="stylesheet" href="css/reset.css">
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/style.css">
+
+    <style>
+
+        /* ── 頁面 Hero ────────────────────────────── */
+        .interactive-hero {
+            padding: var(--space-16) 0 var(--space-8);
+            text-align: center;
+        }
+
+        /* ── 互動區塊共用樣式 ─────────────────────── */
+        .interactive-section {
+            padding: var(--space-12) 0;
+            border-top: 1px solid var(--color-border);
+        }
+
+        .interactive-section:nth-child(even) {
+            background-color: var(--color-bg-2);
+        }
+
+        /* 說明 + canvas 的雙欄佈局 */
+        .interactive-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--space-8);
+            align-items: start;
+        }
+
+        /* 奇數：說明在左，canvas 在右 */
+        /* 偶數：canvas 在左，說明在右（用 order 調換）*/
+        .interactive-section:nth-child(even) .interactive-info {
+            order: 2;
+        }
+        .interactive-section:nth-child(even) .interactive-canvas-wrap {
+            order: 1;
+        }
+
+        /* 說明區塊 */
+        .interactive-info .section-tag {
+            display: inline-block;
+            font-size: var(--fs-xs);
+            font-weight: var(--fw-bold);
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--color-accent);
+            margin-bottom: var(--space-2);
+        }
+
+        .interactive-info h2 {
+            font-family: var(--font-heading);
+            font-size: var(--fs-xl);
+            font-weight: var(--fw-bold);
+            margin-bottom: var(--space-3);
+        }
+
+        .interactive-info p {
+            color: var(--color-text-muted);
+            line-height: var(--lh-loose);
+            margin-bottom: var(--space-4);
+            font-size: var(--fs-sm);
+        }
+
+        /* 操作說明清單 */
+        .how-to-use {
+            background-color: var(--color-bg-3);
+            border-left: 3px solid var(--color-accent);
+            border-radius: 0 var(--radius-md) var(--radius-md) 0;
+            padding: var(--space-3) var(--space-4);
+            margin-bottom: var(--space-4);
+        }
+
+        .how-to-use h4 {
+            font-size: var(--fs-xs);
+            font-weight: var(--fw-bold);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--color-accent);
+            margin-bottom: var(--space-2);
+        }
+
+        .how-to-use li {
+            font-size: var(--fs-xs);
+            color: var(--color-text-muted);
+            margin-bottom: 6px;
+            padding-left: var(--space-2);
+            position: relative;
+        }
+
+        .how-to-use li::before {
+            content: '▸';
+            position: absolute;
+            left: 0;
+            color: var(--color-accent);
+        }
+
+        /* 控制按鈕群 */
+        .control-btns {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-2);
+        }
+
+        .control-btn {
+            padding: var(--space-1) var(--space-3);
+            font-size: var(--fs-xs);
+            font-weight: var(--fw-medium);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-full);
+            color: var(--color-text-muted);
+            cursor: pointer;
+            transition: all var(--transition-base);
+            background: transparent;
+        }
+
+        .control-btn:hover {
+            border-color: var(--color-accent);
+            color: var(--color-accent);
+        }
+
+        .control-btn.danger:hover {
+            border-color: #e74c3c;
+            color: #e74c3c;
+        }
+
+        /* canvas 容器：保持單純 block，不用 flex 避免複雜的伸縮行為 */
+        .interactive-canvas-wrap {
+            background-color: var(--color-bg-3);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* canvas 內的 p5 canvas
+           ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+           【根本原因：p5.js 使用 inline style 鎖住尺寸】
+
+           p5 在 createCanvas(w, h) 時，會在 canvas 元素上
+           直接設定：style="width: 520px; height: 460px;"
+           Inline style 優先級最高（超越任何 CSS class）。
+
+           因此：
+           × max-width: 100%        → 無效（被 inline width 蓋掉）
+           × height: auto           → 無效（被 inline height 蓋掉）
+
+           解法：加 !important 強制蓋過 inline style
+           ✓ max-width: 100% !important  → 容器寬度若小於 canvas 原始寬度，
+                                           則自動縮窄（不超出容器）
+           ✓ height: auto !important     → 依縮放後的寬度等比例縮高，
+                                           維持原始長寬比 → 圓球不變形
+           ✓ margin: 0 auto              → canvas 水平置中於容器
+           ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        */
+        .interactive-canvas-wrap canvas {
+            display: block;
+            max-width: 100% !important;   /* 強制蓋過 p5 inline width */
+            height: auto !important;      /* 強制蓋過 p5 inline height，依比例縮放 */
+            margin: 0 auto;               /* 水平置中 */
+        }
+
+        /* 權限請求遮罩（鏡頭/麥克風）*/
+        .permission-overlay {
+            position: absolute;
+            inset: 0;
+            background-color: var(--color-bg-2);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-3);
+            z-index: 10;
+        }
+
+        .permission-overlay .icon { font-size: 4rem; }
+        .permission-overlay p {
+            font-size: var(--fs-sm);
+            color: var(--color-text-muted);
+            text-align: center;
+            max-width: 240px;
+        }
+        .permission-overlay.hidden { display: none; }
+
+        /* RWD：手機版改單欄 */
+        @media (max-width: 768px) {
+            .interactive-layout {
+                grid-template-columns: 1fr;
+            }
+            .interactive-section:nth-child(even) .interactive-info,
+            .interactive-section:nth-child(even) .interactive-canvas-wrap {
+                order: unset;
+            }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="page-loader">
+        <div class="loader-ring"></div>
+        <p class="loader-text">Loading</p>
+    </div>
+
+    <header class="site-header">
+        <nav class="site-nav">
+            <div class="container">
+                <a href="index.html" class="nav-logo">龍蝦俠</a>
+                <ul class="nav-links">
+                    <li><a href="index.html">首頁</a></li>
+                    <li><a href="about.html">關於</a></li>
+                    <li><a href="works.html">作品集</a></li>
+                    <li><a href="interactive.html">互動體驗</a></li>
+                    <li><a href="chat.html">聊天室</a></li>
+                    <li><a href="contact.html">聯絡</a></li>
+                </ul>
+                <button class="nav-toggle" aria-label="開啟選單" aria-expanded="false">
+                    <span></span><span></span><span></span>
+                </button>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+
+        <!-- Hero -->
+        <section class="interactive-hero">
+            <div class="container">
+                <span class="section-tag reveal">Interactive</span>
+                <h1 class="section-title reveal reveal-delay-1">互動體驗</h1>
+                <p class="section-subtitle reveal reveal-delay-2">
+                    用滑鼠、鍵盤、鏡頭、聲音與藝術互動
+                </p>
+            </div>
+        </section>
+
+        <!-- ══════════════════════════════════════════
+             區塊 0：calling-javascript-from-p5-js 示範
+             這個區塊放在最前面，作為概念介紹
+        ══════════════════════════════════════════════ -->
+        <section class="interactive-section" id="p5-to-js" style="background-color: var(--color-bg-2);">
+            <div class="container">
+
+                <!-- 標題列 -->
+                <div class="section-header" style="margin-bottom: var(--space-6);">
+                    <span class="section-tag reveal">00 / calling-javascript-from-p5-js</span>
+                    <h2 class="section-title reveal reveal-delay-1">p5.js 呼叫 JavaScript</h2>
+                    <p class="section-subtitle reveal reveal-delay-2">
+                        p5 sketch 內部的事件 → 呼叫外部 JS 函式 → 即時更新右側 HTML 元素
+                    </p>
+                </div>
+
+                <!-- 主體：畫布（左寬）+ 資訊面板（右窄）
+                     畫布刻意往下留空間（padding-top），讓右側面板在視覺上對應正確 -->
+                <div style="display:grid; grid-template-columns: 1fr 280px; gap: var(--space-6); align-items:start;">
+
+                    <!-- 左：畫布（放大、往下移讓右側面板對應清楚）-->
+                    <div class="interactive-canvas-wrap reveal-from-left" style="margin-top: var(--space-4);">
+                        <div id="p2j-canvas"></div>
+                        <p style="font-size:var(--fs-xs); color:var(--color-text-muted); padding: var(--space-2) var(--space-3); text-align:center;">
+                            移動滑鼠偵測顏色 · 觀察球的碰壁與碰撞事件
+                        </p>
+                    </div>
+
+                    <!-- 右：p5 呼叫 JS 後更新的 DOM 元素 -->
+                    <div class="reveal-from-right" style="display:flex; flex-direction:column; gap: var(--space-4);">
+
+                        <!-- 說明 -->
+                        <div class="how-to-use">
+                            <h4>運作方式</h4>
+                            <ul>
+                                <li>滑鼠移入畫布 → p5 每幀呼叫<br><code>updateColorDisplay(r,g,b)</code></li>
+                                <li>球碰到邊界 → p5 呼叫<br><code>onBallHitWall()</code></li>
+                                <li>兩球相撞 → p5 呼叫<br><code>onCollision(colorA, colorB)</code></li>
+                            </ul>
+                        </div>
+
+                        <!-- 顏色偵測 -->
+                        <div class="p2j-panel">
+                            <div class="p2j-label">🎨 滑鼠顏色偵測</div>
+                            <div style="display:flex; align-items:center; gap:var(--space-2); margin-top:var(--space-2);">
+                                <div id="p2j-color-swatch"
+                                     style="width:52px; height:52px; border-radius:var(--radius-md);
+                                            border:2px solid var(--color-border); background:#d8d4cc;
+                                            flex-shrink:0; transition:background-color 0.08s;">
+                                </div>
+                                <div>
+                                    <div id="p2j-hex"
+                                         style="font-family:var(--font-mono); font-size:var(--fs-lg);
+                                                font-weight:var(--fw-bold); color:var(--color-text);">
+                                        #D8D4CC
+                                    </div>
+                                    <div id="p2j-rgb"
+                                         style="font-family:var(--font-mono); font-size:1.1rem;
+                                                color:var(--color-text-muted); margin-top:2px; line-height:1.6;">
+                                        R:216  G:212  B:204
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 碰壁計數 -->
+                        <div class="p2j-panel">
+                            <div class="p2j-label">🏓 碰壁次數</div>
+                            <div style="display:flex; align-items:baseline; gap:var(--space-2); margin-top:var(--space-2);">
+                                <div id="p2j-wall-count"
+                                     style="font-family:var(--font-mono); font-size:var(--fs-3xl);
+                                            font-weight:var(--fw-black); color:var(--color-accent);
+                                            line-height:1; transition:transform 0.1s, color 0.2s;">
+                                    0
+                                </div>
+                                <div style="font-size:var(--fs-xs); color:var(--color-text-muted);">次</div>
+                            </div>
+                        </div>
+
+                        <!-- 碰撞偵測
+                             兩顆球相撞時：「碰撞！」文字與數字都跳動，一眼看出事件發生 -->
+                        <div class="p2j-panel">
+                            <div class="p2j-label">💥 球與球碰撞</div>
+                            <div style="display:flex; align-items:center; gap:var(--space-3); margin-top:var(--space-2);">
+
+                                <!-- 跳動的「碰撞！」文字 -->
+                                <div id="p2j-collision-flash"
+                                     style="font-family:var(--font-heading); font-size:var(--fs-md);
+                                            font-weight:var(--fw-bold); color:var(--color-accent);
+                                            white-space:nowrap;">
+                                    碰撞！
+                                </div>
+
+                                <!-- 大數字計數 -->
+                                <div id="p2j-collision-count"
+                                     style="font-family:var(--font-mono); font-size:var(--fs-3xl);
+                                            font-weight:var(--fw-black); color:var(--color-accent);
+                                            line-height:1;">
+                                    0
+                                </div>
+                                <div style="font-size:var(--fs-xs); color:var(--color-text-muted);">次</div>
+                            </div>
+
+                            <!-- 最近碰撞的兩顆球顏色（色條）-->
+                            <div style="display:flex; gap:4px; margin-top:var(--space-2);">
+                                <div id="p2j-col-a"
+                                     style="flex:1; height:8px; border-radius:4px; background:#ccc;
+                                            transition:background 0.2s;"></div>
+                                <div id="p2j-col-b"
+                                     style="flex:1; height:8px; border-radius:4px; background:#aaa;
+                                            transition:background 0.2s;"></div>
+                            </div>
+                            <div style="font-size:var(--fs-xs); color:var(--color-text-muted); margin-top:4px;">
+                                ↑ 最近碰撞的兩顆球顏色
+                            </div>
+                        </div>
+
+                    </div><!-- end right panel -->
+                </div><!-- end grid -->
+
+            </div>
+        </section>
+
+        <style>
+            /* calling-js-from-p5 資訊面板樣式 */
+            .p2j-panel {
+                background: var(--color-bg);
+                border: 1px solid var(--color-border);
+                border-radius: var(--radius-lg);
+                padding: var(--space-3) var(--space-4);
+                box-shadow: var(--shadow-sm);
+            }
+            .p2j-label {
+                font-size: var(--fs-xs);
+                font-weight: var(--fw-bold);
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                color: var(--color-text-muted);
+            }
+
+            /* 碰壁數字跳動動畫 */
+            .p2j-bounce {
+                animation: p2jBounce 0.25s ease;
+            }
+            @keyframes p2jBounce {
+                0%   { transform: scale(1); }
+                50%  { transform: scale(1.4); color: var(--color-accent); }
+                100% { transform: scale(1); }
+            }
+
+            @media (max-width: 768px) {
+                #p5-to-js .interactive-layout,
+                #p5-to-js > .container > div[style*="grid"] {
+                    grid-template-columns: 1fr !important;
+                }
+            }
+        </style>
+
+        <!-- ══════════════════════════════════════════
+             區塊 00b：calling-p5-js-from-javascript 示範
+
+             【概念對照表】
+             ┌──────────────────────────────────────────┐
+             │ 00  / p5 呼叫 JS  → 球碰壁 → 更新右側文字 │
+             │ 00b / JS 呼叫 p5  → 按鈕   → 更改 sketch │
+             └──────────────────────────────────────────┘
+
+             【學習重點：外部 JS 如何呼叫 p5 函式？】
+             1. p5 sketch 內部建立「對外接口物件」shapeCtrl
+             2. 在 sketch 裡把函式掛上這個物件：
+                shapeCtrl.nextShape = function() { ... }
+             3. HTML 按鈕 onclick 直接呼叫：
+                onclick="shapeCtrl.nextShape()"
+        ══════════════════════════════════════════════ -->
+        <section class="interactive-section" id="js-to-p5">
+            <div class="container">
+
+                <div class="section-header" style="margin-bottom: var(--space-6);">
+                    <span class="section-tag reveal">00b / calling-p5-js-from-javascript</span>
+                    <h2 class="section-title reveal reveal-delay-1">JavaScript 呼叫 p5.js</h2>
+                    <p class="section-subtitle reveal reveal-delay-2">
+                        HTML 按鈕觸發事件 → 呼叫 p5 sketch 內部函式 → 即時改變畫布行為
+                    </p>
+                </div>
+
+                <!-- 主體：控制面板（左）+ 畫布（右）-->
+                <div style="display:grid; grid-template-columns: 300px 1fr; gap: var(--space-6); align-items:start;">
+
+                    <!-- 左：HTML 控制面板 -->
+                    <div class="reveal-from-left" style="display:flex; flex-direction:column; gap: var(--space-4);">
+
+                        <!-- 說明 -->
+                        <div class="how-to-use">
+                            <h4>運作方式</h4>
+                            <ul>
+                                <li>按下按鈕 → HTML onclick 呼叫<br><code>shapeCtrl.xxx()</code></li>
+                                <li>shapeCtrl 是 p5 sketch 暴露到外部的「接口物件」</li>
+                                <li>點擊畫布也會在點擊位置生成形狀</li>
+                            </ul>
+                        </div>
+
+                        <!-- 目前狀態 -->
+                        <div class="p2j-panel">
+                            <div class="p2j-label">目前設定</div>
+                            <div style="margin-top:var(--space-2); display:flex; flex-direction:column; gap:8px;">
+                                <div style="display:flex; align-items:center; gap:var(--space-2);">
+                                    <span style="font-size:var(--fs-xs); color:var(--color-text-muted); width:36px;">形狀</span>
+                                    <span id="jtop5-current-shape"
+                                          style="font-family:var(--font-mono); font-size:var(--fs-sm);
+                                                 font-weight:var(--fw-bold); color:var(--color-accent);">圓形</span>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:var(--space-2);">
+                                    <span style="font-size:var(--fs-xs); color:var(--color-text-muted); width:36px;">顏色</span>
+                                    <div id="jtop5-color-dot"
+                                         style="width:20px; height:20px; border-radius:50%;
+                                                background:#c83200; border:2px solid var(--color-border);
+                                                transition:background 0.2s;"></div>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:var(--space-2);">
+                                    <span style="font-size:var(--fs-xs); color:var(--color-text-muted); width:36px;">大小</span>
+                                    <span id="jtop5-current-size"
+                                          style="font-family:var(--font-mono); font-size:var(--fs-sm);
+                                                 font-weight:var(--fw-bold); color:var(--color-accent);">60 px</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 形狀控制 -->
+                        <div class="p2j-panel">
+                            <div class="p2j-label">🔷 形狀控制</div>
+                            <div class="control-btns" style="margin-top:var(--space-2);">
+                                <button class="control-btn" onclick="shapeCtrl.nextShape()">切換形狀</button>
+                                <button class="control-btn" onclick="shapeCtrl.addRandom()">隨機生成</button>
+                                <button class="control-btn" onclick="shapeCtrl.clear()">清空畫布</button>
+                            </div>
+                        </div>
+
+                        <!-- 顏色控制 -->
+                        <div class="p2j-panel">
+                            <div class="p2j-label">🎨 顏色控制</div>
+                            <div class="control-btns" style="margin-top:var(--space-2);">
+                                <button class="control-btn" onclick="shapeCtrl.setColor('#c83200')"
+                                        style="border-left:4px solid #c83200;">橘紅</button>
+                                <button class="control-btn" onclick="shapeCtrl.setColor('#1a2980')"
+                                        style="border-left:4px solid #1a2980;">深藍</button>
+                                <button class="control-btn" onclick="shapeCtrl.setColor('#0d6b5e')"
+                                        style="border-left:4px solid #0d6b5e;">深綠</button>
+                                <button class="control-btn" onclick="shapeCtrl.setColor('#7b1fa2')"
+                                        style="border-left:4px solid #7b1fa2;">深紫</button>
+                            </div>
+                        </div>
+
+                        <!-- 大小控制 -->
+                        <div class="p2j-panel">
+                            <div class="p2j-label">📐 大小控制</div>
+                            <div class="control-btns" style="margin-top:var(--space-2);">
+                                <button class="control-btn" onclick="shapeCtrl.setSize(30)">小</button>
+                                <button class="control-btn" onclick="shapeCtrl.setSize(60)">中</button>
+                                <button class="control-btn" onclick="shapeCtrl.setSize(100)">大</button>
+                            </div>
+                        </div>
+
+                        <!-- 自動 + 儲存 -->
+                        <div class="control-btns">
+                            <button class="control-btn" onclick="shapeCtrl.toggleAuto()">
+                                <span id="jtop5-auto-label">自動產生</span>
+                            </button>
+                            <button class="control-btn" onclick="shapeCtrl.saveImage()">儲存圖片</button>
+                        </div>
+
+                    </div><!-- end left panel -->
+
+                    <!-- 右：p5 canvas -->
+                    <div class="interactive-canvas-wrap reveal-from-right">
+                        <div id="jtop5-canvas"></div>
+                        <p style="font-size:var(--fs-xs); color:var(--color-text-muted);
+                                   padding: var(--space-2) var(--space-3); text-align:center;">
+                            點擊畫布生成形狀 · 左側按鈕即時控制 sketch 行為
+                        </p>
+                    </div>
+
+                </div><!-- end grid -->
+
+            </div>
+        </section>
+
+        <!-- ══════════════════════════════════════════
+             區塊 1：滑鼠繪圖
+        ══════════════════════════════════════════════ -->
+        <section class="interactive-section" id="mouse-draw">
+            <div class="container">
+                <div class="interactive-layout">
+
+                    <div class="interactive-info reveal-from-left">
+                        <span class="section-tag">01 / Mouse</span>
+                        <h2>滑鼠繪圖</h2>
+                        <p>
+                            在畫布上移動滑鼠，創造屬於你自己的生成藝術線條。
+                            每次點擊改變顏色，每次移動留下痕跡。
+                        </p>
+
+                        <div class="how-to-use">
+                            <h4>操作方式</h4>
+                            <ul>
+                                <li>按住滑鼠左鍵 + 移動：繪製線條</li>
+                                <li>點擊畫布：隨機切換顏色</li>
+                                <li>拖拉速度影響線條粗細</li>
+                            </ul>
+                        </div>
+
+                        <div class="control-btns">
+                            <!-- calling-p5-js-from-javascript 模式：
+                                 HTML 按鈕呼叫 p5 sketch 暴露出來的函式 -->
+                            <button class="control-btn" onclick="mouseDraw.clearCanvas()">清空畫布</button>
+                            <button class="control-btn" onclick="mouseDraw.saveImage()">儲存圖片</button>
+                            <button class="control-btn" onclick="mouseDraw.randomColor()">隨機顏色</button>
+                        </div>
+                    </div>
+
+                    <div class="interactive-canvas-wrap reveal-from-right">
+                        <div id="mouse-canvas"></div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- ══════════════════════════════════════════
+             區塊 2：鍵盤生成藝術
+        ══════════════════════════════════════════════ -->
+        <section class="interactive-section" id="keyboard-art">
+            <div class="container">
+                <div class="interactive-layout">
+
+                    <div class="interactive-canvas-wrap reveal-from-left">
+                        <div id="keyboard-canvas"></div>
+                    </div>
+
+                    <div class="interactive-info reveal-from-right">
+                        <span class="section-tag">02 / Keyboard</span>
+                        <h2>鍵盤生成藝術</h2>
+                        <p>
+                            每個按鍵都是一個音符，也是一個圖形。
+                            試著按下任意按鍵，看看什麼樣的形狀出現在畫布上。
+                        </p>
+
+                        <div class="how-to-use">
+                            <h4>操作方式</h4>
+                            <ul>
+                                <li>按下任意按鍵：在隨機位置生成圖形</li>
+                                <li>字母鍵：不同字母對應不同顏色</li>
+                                <li>數字鍵 1–5：切換圖形種類</li>
+                                <li>空白鍵：清空畫布</li>
+                            </ul>
+                        </div>
+
+                        <div class="control-btns">
+                            <button class="control-btn" onclick="keyboardArt.clearAll()">清空</button>
+                            <button class="control-btn" onclick="keyboardArt.saveImage()">儲存</button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- ══════════════════════════════════════════
+             區塊 3：3D WebGL 旋轉雕塑
+        ══════════════════════════════════════════════ -->
+        <section class="interactive-section" id="webgl-3d">
+            <div class="container">
+                <div class="interactive-layout">
+
+                    <div class="interactive-info reveal-from-left">
+                        <span class="section-tag">03 / 3D WebGL</span>
+                        <h2>3D 互動雕塑</h2>
+                        <p>
+                            p5.js 的 WEBGL 模式可以渲染 3D 圖形。
+                            拖拉畫布旋轉視角，滾輪縮放，
+                            觀察這個由程式碼生成的抽象雕塑。
+                        </p>
+
+                        <div class="how-to-use">
+                            <h4>操作方式</h4>
+                            <ul>
+                                <li>拖拉：旋轉 3D 視角</li>
+                                <li>滾輪：縮放</li>
+                                <li>點擊「變形」：切換幾何形狀</li>
+                            </ul>
+                        </div>
+
+                        <div class="control-btns">
+                            <button class="control-btn" onclick="webgl3d.nextShape()">切換形狀</button>
+                            <button class="control-btn" onclick="webgl3d.toggleWireframe()">線框模式</button>
+                            <button class="control-btn" onclick="webgl3d.toggleRotate()">暫停旋轉</button>
+                        </div>
+                    </div>
+
+                    <div class="interactive-canvas-wrap reveal-from-right">
+                        <div id="webgl-canvas"></div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- ══════════════════════════════════════════
+             區塊 4：鏡頭互動
+        ══════════════════════════════════════════════ -->
+        <section class="interactive-section" id="camera">
+            <div class="container">
+                <div class="interactive-layout">
+
+                    <div class="interactive-canvas-wrap reveal-from-left">
+                        <!-- 鏡頭權限請求遮罩 -->
+                        <div class="permission-overlay" id="camera-permission">
+                            <div class="icon">📷</div>
+                            <p>點擊下方按鈕開啟鏡頭</p>
+                            <button class="btn btn--primary"
+                                    onclick="cameraSketch.requestCamera()">
+                                開啟鏡頭
+                            </button>
+                        </div>
+                        <div id="camera-canvas"></div>
+                    </div>
+
+                    <div class="interactive-info reveal-from-right">
+                        <span class="section-tag">04 / Camera</span>
+                        <h2>鏡頭像素藝術</h2>
+                        <p>
+                            p5.js 可以存取鏡頭影像（需要瀏覽器授權）。
+                            這個 sketch 把鏡頭影像重新詮釋為像素藝術風格，
+                            將你變成一件生成藝術作品。
+                        </p>
+
+                        <div class="how-to-use">
+                            <h4>操作方式</h4>
+                            <ul>
+                                <li>開啟鏡頭後，畫面即時顯示</li>
+                                <li>滑鼠左右移動：調整像素化程度</li>
+                                <li>點擊畫布：切換顏色風格</li>
+                            </ul>
+                        </div>
+
+                        <div class="control-btns">
+                            <button class="control-btn" onclick="cameraSketch.toggleStyle()">切換風格</button>
+                            <button class="control-btn danger"
+                                    onclick="cameraSketch.stopCamera()">關閉鏡頭</button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- ══════════════════════════════════════════
+             區塊 5：聲音視覺化（全新！需要 p5.sound）
+        ══════════════════════════════════════════════ -->
+        <section class="interactive-section" id="sound">
+            <div class="container">
+                <div class="interactive-layout">
+
+                    <div class="interactive-info reveal-from-left">
+                        <span class="section-tag">05 / Sound</span>
+                        <h2>聲音視覺化</h2>
+                        <p>
+                            p5.sound 讓 p5.js 能分析麥克風聲音。
+                            透過 FFT（快速傅立葉轉換），把音訊分解成頻率，
+                            即時繪製成頻譜圖、波形或圓形視覺化。
+                        </p>
+
+                        <div class="how-to-use">
+                            <h4>操作方式</h4>
+                            <ul>
+                                <li>開啟麥克風後，對著它說話或播放音樂</li>
+                                <li>點擊「切換模式」：波形→頻譜→疊合→圓形</li>
+                                <li>音量越大，圖形變化越劇烈</li>
+                                <li>右側細條為即時音量指示器</li>
+                            </ul>
+                        </div>
+
+                        <div class="control-btns">
+                            <button class="control-btn" onclick="soundViz.toggleMode()">切換模式</button>
+                            <button class="control-btn danger" onclick="soundViz.stopMic()">關閉麥克風</button>
+                        </div>
+                    </div>
+
+                    <div class="interactive-canvas-wrap reveal-from-right">
+                        <!-- 麥克風權限請求遮罩 -->
+                        <div class="permission-overlay" id="sound-permission">
+                            <div class="icon">🎙️</div>
+                            <p>點擊下方按鈕開啟麥克風<br>（需要瀏覽器授權）</p>
+                            <button class="btn btn--primary"
+                                    onclick="soundViz.requestMic()">
+                                開啟麥克風
+                            </button>
+                        </div>
+                        <div id="sound-canvas"></div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="site-footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <p class="footer-logo">龍蝦俠</p>
+                    <p>新媒體藝術家<br>以代碼為畫筆，以螢幕為畫布</p>
+                </div>
+                <div class="footer-nav">
+                    <h4>頁面</h4>
+                    <ul>
+                        <li><a href="index.html">首頁</a></li>
+                        <li><a href="about.html">關於</a></li>
+                        <li><a href="works.html">作品集</a></li>
+                        <li><a href="interactive.html">互動體驗</a></li>
+                        <li><a href="chat.html">聊天室</a></li>
+                    <li><a href="chat.html">聊天室</a></li>
+                        <li><a href="contact.html">聯絡</a></li>
+                    </ul>
+                </div>
+                <div class="footer-social">
+                    <h4>社群</h4>
+                    <ul>
+                        <li><a href="#" target="_blank" rel="noopener">Instagram</a></li>
+                        <li><a href="#" target="_blank" rel="noopener">GitHub</a></li>
+                        <li><a href="#" target="_blank" rel="noopener">Behance</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>© 2024 龍蝦俠 · 新媒體藝術家 · 保留所有權利</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- ══════════════════════════════════════════════
+         引入 p5.js 本體 + p5.sound 擴充套件
+         【順序很重要】p5.min.js → p5.sound.min.js → sketches
+    ══════════════════════════════════════════════════ -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+
+    <!-- p5.sound：p5.js 的聲音擴充，提供 AudioIn / FFT / Amplitude 等功能 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/addons/p5.sound.min.js"></script>
+
+    <script src="js/main.js"></script>
+
+    <!-- ══════════════════════════════════════════════
+         各互動 Sketch（獨立 JS 檔）
+         每個 sketch 都在自己的檔案裡，各自完整、互不干擾
+
+         【引用順序說明】
+         - interactive-p5-to-js.js 放最前面：
+           因為它定義了全域函式（updateColorDisplay 等），
+           必須在 new p5(...) 執行前就存在
+    ══════════════════════════════════════════════════ -->
+    <!-- interactive-p5-to-js.js：定義 updateColorDisplay / onBallHitWall / onCollision 等全域函式 -->
+    <script src="p5/interactive-p5-to-js.js"></script>
+    <!-- demo-js-to-p5.js：定義 shapeCtrl 接口物件，供 HTML 按鈕呼叫 -->
+    <script src="p5/demo-js-to-p5.js"></script>
+    <script src="p5/interactive-mouse.js"></script>
+    <script src="p5/interactive-keyboard.js"></script>
+    <script src="p5/interactive-3d.js"></script>
+    <script src="p5/interactive-camera.js"></script>
+    <script src="p5/interactive-sound.js"></script>
+
+    <!-- 以下是已移除的內嵌 sketch（已移至 p5/ 資料夾）
+         保留這段注解讓學生了解重構的過程 -->
+    <!--
+    <script>
+    /* ══════════════════════════════════════════════════
+       Sketch 1：滑鼠繪圖
+       ══════════════════════════════════════════════════
+
+       【calling-p5-js-from-javascript 整合模式】
+       1. p5 sketch 將函式暴露到 window（或變數）上
+       2. HTML 按鈕直接呼叫這些函式
+       → 這就是 p5.js_with_html/4 練習的進階版！
+    ══════════════════════════════════════════════════ */
+    const mouseDraw = {};   /* 用來存放要給 HTML 按鈕呼叫的函式 */
+
+    new p5(function (p) {
+
+        let currentColor;
+        let brushSize = 8;
+        let isDrawing = false;
+
+        p.setup = function () {
+            let canvas = p.createCanvas(560, 400);
+            canvas.parent('mouse-canvas');
+            p.background(15);
+            currentColor = p.color(255, 69, 0);
+
+            /* 設定滑鼠游標樣式 */
+            canvas.elt.style.cursor = 'crosshair';
+        };
+
+        p.draw = function () {
+            /* 只在滑鼠按住時繪製 */
+            if (p.mouseIsPressed && isMouseOnCanvas()) {
+                /* 計算滑鼠移動速度（決定筆刷粗細）*/
+                let speed = p.dist(p.mouseX, p.mouseY, p.pmouseX, p.pmouseY);
+                let size = p.map(speed, 0, 20, brushSize, brushSize * 0.3);
+                size = p.constrain(size, 1, brushSize);
+
+                p.noStroke();
+                p.fill(currentColor);
+
+                /* 在目前滑鼠位置和上一幀位置之間插值，
+                   讓線條更平滑（不會有跳格感）*/
+                p.ellipse(p.mouseX, p.mouseY, size);
+            }
+        };
+
+        function isMouseOnCanvas() {
+            return p.mouseX >= 0 && p.mouseX <= p.width &&
+                   p.mouseY >= 0 && p.mouseY <= p.height;
+        }
+
+        /* 點擊時切換顏色 */
+        p.mousePressed = function () {
+            if (isMouseOnCanvas()) {
+                /* HSB 色彩模式：色相(H)、飽和度(S)、亮度(B) */
+                p.colorMode(p.HSB, 360, 100, 100, 100);
+                currentColor = p.color(p.random(360), 80, 95, 85);
+                p.colorMode(p.RGB, 255);   /* 切回 RGB 模式 */
+            }
+        };
+
+        /* ── 暴露給 HTML 按鈕呼叫的函式 ────────────── */
+        mouseDraw.clearCanvas = function () {
+            p.background(15);
+        };
+
+        mouseDraw.saveImage = function () {
+            p.saveCanvas('龍蝦俠_滑鼠繪圖', 'png');
+        };
+
+        mouseDraw.randomColor = function () {
+            p.colorMode(p.HSB, 360, 100, 100);
+            currentColor = p.color(p.random(360), 80, 95);
+            p.colorMode(p.RGB, 255);
+        };
+
+    });
+
+    /* ══════════════════════════════════════════════════
+       Sketch 2：鍵盤生成藝術
+    ══════════════════════════════════════════════════ */
+    const keyboardArt = {};
+
+    new p5(function (p) {
+
+        let shapeMode = 1;    /* 1=圓 2=方 3=三角 4=線 5=星 */
+        let shapes = [];      /* 儲存所有已生成的圖形 */
+
+        p.setup = function () {
+            let canvas = p.createCanvas(560, 400);
+            canvas.parent('keyboard-canvas');
+            p.background(15);
+        };
+
+        p.draw = function () {
+            /* draw() 這裡不做任何事，圖形在 keyPressed 時生成 */
+        };
+
+        p.keyPressed = function () {
+            /* 空白鍵：清空 */
+            if (p.key === ' ') {
+                p.background(15);
+                shapes = [];
+                return;
+            }
+
+            /* 數字鍵 1~5：切換圖形種類 */
+            if (p.key >= '1' && p.key <= '5') {
+                shapeMode = parseInt(p.key);
+                return;
+            }
+
+            /* 根據字母決定顏色（charCodeAt 把字元轉成 ASCII 數字）*/
+            let hue = (p.key.charCodeAt(0) * 37) % 360;
+            p.colorMode(p.HSB, 360, 100, 100, 100);
+
+            /* 隨機位置生成圖形 */
+            let x = p.random(50, p.width - 50);
+            let y = p.random(50, p.height - 50);
+            let size = p.random(20, 80);
+            let col = p.color(hue, 75, 90, 80);
+
+            p.fill(col);
+            p.noStroke();
+
+            p.push();           /* push/pop：暫存/恢復座標系狀態 */
+            p.translate(x, y);
+            p.rotate(p.random(p.TWO_PI));   /* 隨機旋轉角度 */
+
+            switch (shapeMode) {
+                case 1: p.ellipse(0, 0, size); break;
+                case 2: p.rectMode(p.CENTER); p.rect(0, 0, size, size, 4); break;
+                case 3: drawTriangle(p, size); break;
+                case 4:
+                    p.stroke(col); p.strokeWeight(2); p.noFill();
+                    p.line(-size/2, 0, size/2, 0);
+                    break;
+                case 5: drawStar(p, size / 2); break;
+            }
+
+            p.pop();
+            p.colorMode(p.RGB, 255);
+        };
+
+        /* 繪製等邊三角形 */
+        function drawTriangle(p, size) {
+            p.triangle(
+                0, -size / 2,
+                -size / 2, size / 2,
+                size / 2, size / 2
+            );
+        }
+
+        /* 繪製五角星 */
+        function drawStar(p, r) {
+            let outerR = r;
+            let innerR = r * 0.4;
+            p.beginShape();
+            for (let i = 0; i < 10; i++) {
+                let angle = p.TWO_PI * i / 10 - p.HALF_PI;
+                let radius = (i % 2 === 0) ? outerR : innerR;
+                p.vertex(p.cos(angle) * radius, p.sin(angle) * radius);
+            }
+            p.endShape(p.CLOSE);
+        }
+
+        keyboardArt.clearAll = function () { p.background(15); };
+        keyboardArt.saveImage = function () { p.saveCanvas('龍蝦俠_鍵盤藝術', 'png'); };
+
+    });
+
+    /* ══════════════════════════════════════════════════
+       Sketch 3：3D WebGL 旋轉雕塑
+    ══════════════════════════════════════════════════ */
+    const webgl3d = {};
+
+    new p5(function (p) {
+
+        let shapeIndex = 0;
+        const shapes = ['box', 'sphere', 'torus', 'cone', 'cylinder'];
+        let wireframe = false;
+        let autoRotate = true;
+        let rotX = 0, rotY = 0;
+        let dragStart = null;
+
+        p.setup = function () {
+            /* createCanvas 第三個參數 WEBGL：啟用 3D 模式！ */
+            let canvas = p.createCanvas(560, 400, p.WEBGL);
+            canvas.parent('webgl-canvas');
+        };
+
+        p.draw = function () {
+            p.background(15);
+
+            /* 設定光源 */
+            p.ambientLight(60);
+            p.directionalLight(255, 120, 50, 1, -1, -1);  /* 橘紅色方向光 */
+            p.pointLight(100, 100, 255, -200, -200, 100);  /* 藍紫色點光 */
+
+            /* 拖拉旋轉 */
+            if (p.mouseIsPressed && dragStart) {
+                rotY += (p.mouseX - dragStart.x) * 0.01;
+                rotX += (p.mouseY - dragStart.y) * 0.01;
+                dragStart = { x: p.mouseX, y: p.mouseY };
+            }
+
+            if (autoRotate) {
+                rotY += 0.008;
+                rotX += 0.003;
+            }
+
+            p.rotateX(rotX);
+            p.rotateY(rotY);
+
+            /* 材質設定 */
+            if (wireframe) {
+                p.noFill();
+                p.stroke(255, 69, 0);
+                p.strokeWeight(1);
+            } else {
+                p.noStroke();
+                /* specularMaterial：有光澤的材質，反射光線更強 */
+                p.specularMaterial(255, 100, 50);
+                p.shininess(80);
+            }
+
+            /* 根據 shapeIndex 繪製不同 3D 圖形 */
+            let size = 120;
+            switch (shapes[shapeIndex]) {
+                case 'box':      p.box(size); break;
+                case 'sphere':   p.sphere(size * 0.7, 24, 24); break;
+                case 'torus':    p.torus(size * 0.6, size * 0.2); break;
+                case 'cone':     p.cone(size * 0.6, size); break;
+                case 'cylinder': p.cylinder(size * 0.5, size); break;
+            }
+        };
+
+        p.mousePressed = function () {
+            dragStart = { x: p.mouseX, y: p.mouseY };
+        };
+        p.mouseReleased = function () { dragStart = null; };
+
+        webgl3d.nextShape = function () {
+            shapeIndex = (shapeIndex + 1) % shapes.length;
+        };
+        webgl3d.toggleWireframe = function () { wireframe = !wireframe; };
+        webgl3d.toggleRotate = function () { autoRotate = !autoRotate; };
+
+    });
+
+    /* ══════════════════════════════════════════════════
+       Sketch 4：鏡頭像素化
+    ══════════════════════════════════════════════════ */
+    const cameraSketch = {};
+
+    new p5(function (p) {
+
+        let capture = null;
+        let style = 0;   /* 0=像素藝術  1=邊緣偵測  2=色彩反轉 */
+        let isActive = false;
+
+        p.setup = function () {
+            let canvas = p.createCanvas(560, 400);
+            canvas.parent('camera-canvas');
+            p.background(15);
+            p.textAlign(p.CENTER, p.CENTER);
+            p.textSize(14);
+            p.fill(100);
+            p.text('點擊「開啟鏡頭」按鈕', p.width / 2, p.height / 2);
+        };
+
+        p.draw = function () {
+            if (!isActive || !capture) return;
+
+            capture.loadPixels();
+            if (capture.pixels.length === 0) return;
+
+            /* 像素化程度：根據滑鼠水平位置決定方塊大小
+               mouseX 接近 0 → 方塊 4px（細膩）
+               mouseX 接近 width → 方塊 24px（粗糙）*/
+            let blockSize = p.floor(
+                p.map(p.mouseX, 0, p.width, 4, 24)
+            );
+
+            /* 逐格採樣鏡頭像素，以方塊重新繪製 */
+            p.noStroke();
+            for (let y = 0; y < p.height; y += blockSize) {
+                for (let x = 0; x < p.width; x += blockSize) {
+
+                    /* 採樣鏡頭對應位置的顏色 */
+                    let srcX = p.floor(p.map(x, 0, p.width,  0, capture.width));
+                    let srcY = p.floor(p.map(y, 0, p.height, 0, capture.height));
+                    let idx  = (srcX + srcY * capture.width) * 4;
+
+                    let r = capture.pixels[idx];
+                    let g = capture.pixels[idx + 1];
+                    let b = capture.pixels[idx + 2];
+
+                    /* 根據 style 套用不同效果 */
+                    switch (style) {
+                        case 0:  /* 像素藝術：原色 */
+                            p.fill(r, g, b);
+                            break;
+                        case 1:  /* 灰階 */
+                            let gray = (r + g + b) / 3;
+                            p.fill(gray);
+                            break;
+                        case 2:  /* 色彩反轉 */
+                            p.fill(255 - r, 255 - g, 255 - b);
+                            break;
+                    }
+
+                    p.rect(x, y, blockSize, blockSize);
+                }
+            }
+        };
+
+        cameraSketch.requestCamera = function () {
+            /* createCapture(VIDEO)：開啟鏡頭 */
+            capture = p.createCapture(p.VIDEO, function () {
+                /* 鏡頭開啟成功後的 callback */
+                isActive = true;
+
+                /* 隱藏權限遮罩 */
+                document.getElementById('camera-permission')
+                        .classList.add('hidden');
+
+                /* 隱藏 video 元素本身（我們用 p5 重新繪製）*/
+                capture.hide();
+            });
+
+            capture.size(p.width, p.height);
+        };
+
+        cameraSketch.toggleStyle = function () {
+            style = (style + 1) % 3;
+        };
+
+        cameraSketch.stopCamera = function () {
+            if (capture) {
+                capture.remove();
+                capture = null;
+                isActive = false;
+                p.background(15);
+                p.fill(100);
+                p.text('鏡頭已關閉', p.width / 2, p.height / 2);
+
+                /* 顯示權限遮罩 */
+                document.getElementById('camera-permission')
+                        .classList.remove('hidden');
+            }
+        };
+
+    });
+
+    -->
+    <!-- 內嵌 sketch 結束，已重構為獨立 p5/ 檔案 -->
+
+</body>
+</html>

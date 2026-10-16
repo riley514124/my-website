@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<!--
+    works.html — 作品集頁面
+    =====================================================
+    學習重點：
+    1. CSS Grid auto-fill + minmax（響應式格狀版面）
+    2. CSS hover overlay 效果（圖片上的資訊遮罩）
+    3. JavaScript 分類篩選（filter 功能）
+    4. CSS transition + transform 卡片動畫
+    5. data-* 自訂屬性的活用
+    =====================================================
+-->
+<html lang="zh-Hant-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>作品集 — 龍蝦俠 新媒體藝術家</title>
+
+    <link rel="stylesheet" href="css/reset.css">
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/style.css">
+
+    <style>
+
+        /* ── Hero ────────────────────────────────────── */
+        .works-hero {
+            padding: var(--space-16) 0 var(--space-8);
+            text-align: center;
+        }
+
+        .works-hero h1 {
+            font-family: var(--font-heading);
+            font-size: var(--fs-2xl);
+            font-weight: var(--fw-bold);
+        }
+
+        /* ── 篩選按鈕列 ──────────────────────────────
+
+           Flexbox 水平排列，超出時換行（flex-wrap: wrap）
+        ─────────────────────────────────────────────── */
+        .filter-section {
+            padding: var(--space-3) 0;
+            border-bottom: 1px solid var(--color-border);
+            margin-bottom: var(--space-6);
+            position: sticky;       /* 捲動時黏在頂端（在導覽列以下）*/
+            top: var(--nav-height);
+            /* 淡色主題：半透明奶白背景 */
+            background-color: rgba(249, 247, 242, 0.93);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+            z-index: var(--z-card);
+        }
+
+        .filter-bar {
+            display: flex;
+            flex-wrap: wrap;       /* 超出螢幕寬度時自動換行 */
+            gap: var(--space-2);
+            align-items: center;
+        }
+
+        .filter-label {
+            font-size: var(--fs-xs);
+            color: var(--color-text-muted);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin-right: var(--space-2);
+        }
+
+        /* 篩選按鈕 */
+        .filter-btn {
+            padding: var(--space-1) var(--space-3);
+            font-size: var(--fs-xs);
+            font-weight: var(--fw-medium);
+            letter-spacing: 0.05em;
+            color: var(--color-text-muted);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-full);
+            cursor: pointer;
+            transition: all var(--transition-base);
+            /* 明確設定背景色，避免繼承深色 */
+            background-color: var(--color-bg);
+        }
+
+        .filter-btn:hover {
+            border-color: var(--color-accent);
+            color: var(--color-accent);
+        }
+
+        /* 目前選中的篩選按鈕（JS 添加 .active class）*/
+        .filter-btn.active {
+            background-color: var(--color-accent);
+            border-color: var(--color-accent);
+            color: #fff;
+        }
+
+        /* 顯示作品數量 */
+        .works-count {
+            margin-left: auto;      /* 推到最右邊 */
+            font-size: var(--fs-xs);
+            color: var(--color-text-muted);
+        }
+
+        .works-count span {
+            color: var(--color-accent);
+            font-weight: var(--fw-bold);
+        }
+
+        /* ── 作品格狀版面 ─────────────────────────────
+
+           【CSS Grid auto-fill + minmax 的魔法】
+
+           grid-template-columns: repeat(auto-fill, minmax(300px, 1fr))
+
+           auto-fill：自動計算能放幾欄
+           minmax(300px, 1fr)：每欄最小 300px，最大平均分配
+
+           效果：
+           - 大螢幕 → 自動排成 3～4 欄
+           - 中螢幕 → 自動排成 2 欄
+           - 小螢幕 → 排成 1 欄
+           完全不需要手動寫 media query！
+        ─────────────────────────────────────────────── */
+        .works-section {
+            padding-bottom: var(--space-16);
+            /* 明確設定背景色 */
+            background-color: var(--color-bg);
+        }
+
+        .works-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: var(--space-4);
+        }
+
+        /* ── 作品卡片 ─────────────────────────────────
+
+           卡片結構：
+           .work-card
+             └── .work-thumb（圖片容器）
+                   └── .work-img（圖片/佔位）
+                   └── .work-overlay（hover 遮罩）
+                         └── .overlay-content（遮罩內文字）
+             └── .work-meta（卡片底部資訊）
+        ─────────────────────────────────────────────── */
+        .work-card {
+            position: relative;
+            border-radius: var(--radius-lg);
+            overflow: hidden;        /* 讓圓角裁切子元素 */
+            background-color: var(--color-bg-2);
+            cursor: pointer;
+            transition: transform var(--transition-base),
+                        box-shadow var(--transition-base);
+        }
+
+        .work-card:hover {
+            transform: translateY(-6px);     /* 上浮 6px */
+            box-shadow: var(--shadow-lg);
+        }
+
+        /* 圖片容器：固定長寬比 4:3 */
+        .work-thumb {
+            position: relative;
+            aspect-ratio: 4 / 3;    /* aspect-ratio：固定寬高比，現代 CSS！ */
+            overflow: hidden;
+        }
+
+        /* 作品圖片（佔位用 CSS 漸層，實際替換為 <img>）*/
+        .work-img {
+            width: 100%;
+            height: 100%;
+            transition: transform var(--transition-slow);
+
+            /* 圖片放大動畫：先把比例設為 100%，hover 時放大 */
+        }
+
+        .work-card:hover .work-img {
+            transform: scale(1.08);   /* hover 時圖片放大 8% */
+        }
+
+        /* 各作品的 CSS 漸層背景（模擬作品縮圖）*/
+        .work-img.w1 {
+            background: linear-gradient(135deg, #0a0a2e 0%, #1a0a5e 50%, #ff4500 100%);
+        }
+        .work-img.w2 {
+            background: radial-gradient(circle at 30% 40%,
+                #ff4500 0%, #6b2fa0 40%, #0a0a2e 80%);
+        }
+        .work-img.w3 {
+            background: linear-gradient(45deg,
+                #0d7377 0%, #14a085 50%, #ff8c00 100%);
+        }
+        .work-img.w4 {
+            background: conic-gradient(
+                from 0deg, #0a0a2e, #ff4500, #6b2fa0, #0a0a2e);
+        }
+        .work-img.w5 {
+            background: linear-gradient(180deg,
+                #1a1a4e 0%, #2d2d8e 40%, #ff4500 100%);
+        }
+        .work-img.w6 {
+            background: radial-gradient(ellipse at center,
+                #ff8c00 0%, #ff4500 30%, #1a0a2e 80%);
+        }
+        .work-img.w7 {
+            background: linear-gradient(135deg,
+                #001a33 0%, #003366 50%, #0099ff 100%);
+        }
+        .work-img.w8 {
+            background: conic-gradient(
+                from 180deg at 50% 50%, #0a2e0a, #2ecc71, #0a4e0a, #ff4500, #0a2e0a);
+        }
+
+        /* ── Hover 遮罩 overlay ───────────────────────
+
+           絕對定位覆蓋整個圖片，
+           預設透明（opacity: 0），hover 時出現
+        ─────────────────────────────────────────────── */
+        .work-overlay {
+            position: absolute;
+            inset: 0;               /* 等同 top:0; right:0; bottom:0; left:0 */
+            background-color: rgba(0, 0, 0, 0.75);
+
+            /* Flexbox 讓 overlay 內容置中 */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            opacity: 0;             /* 預設不可見 */
+            transition: opacity var(--transition-base);
+        }
+
+        .work-card:hover .work-overlay {
+            opacity: 1;             /* hover 時顯示 */
+        }
+
+        /* overlay 內容：從下方滑入 */
+        .overlay-content {
+            text-align: center;
+            transform: translateY(10px);
+            transition: transform var(--transition-base);
+        }
+
+        .work-card:hover .overlay-content {
+            transform: translateY(0);
+        }
+
+        .overlay-content h3 {
+            font-family: var(--font-heading);
+            font-size: var(--fs-lg);
+            font-weight: var(--fw-bold);
+            margin-bottom: var(--space-2);
+        }
+
+        .overlay-content p {
+            font-size: var(--fs-sm);
+            color: var(--color-text-muted);
+            margin-bottom: var(--space-3);
+        }
+
+        .overlay-btn {
+            display: inline-block;
+            padding: var(--space-1) var(--space-3);
+            border: 1px solid var(--color-accent);
+            border-radius: var(--radius-full);
+            font-size: var(--fs-xs);
+            color: var(--color-accent);
+            letter-spacing: 0.1em;
+            transition: all var(--transition-base);
+        }
+
+        .overlay-btn:hover {
+            background-color: var(--color-accent);
+            color: #fff;
+        }
+
+        /* 卡片底部資訊 */
+        .work-meta {
+            padding: var(--space-3) var(--space-4);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .work-title {
+            font-size: var(--fs-sm);
+            font-weight: var(--fw-medium);
+        }
+
+        /* 分類標籤徽章 */
+        .work-tag {
+            font-size: var(--fs-xs);
+            padding: 2px var(--space-2);
+            border-radius: var(--radius-full);
+            font-weight: var(--fw-medium);
+            letter-spacing: 0.05em;
+        }
+
+        /* 分類標籤（淡色主題：使用半透明邊框 + 深色文字）*/
+        .work-tag.generative {
+            background-color: rgba(200, 50, 0, 0.10);
+            border: 1px solid rgba(200, 50, 0, 0.25);
+            color: #9a2200;
+        }
+        .work-tag.interactive {
+            background-color: rgba(107, 47, 160, 0.10);
+            border: 1px solid rgba(107, 47, 160, 0.25);
+            color: #6b2fa0;
+        }
+        .work-tag.video {
+            background-color: rgba(13, 115, 119, 0.10);
+            border: 1px solid rgba(13, 115, 119, 0.25);
+            color: #0d7377;
+        }
+
+        /* ── 篩選隱藏動畫 ────────────────────────────
+           JS filter 功能：隱藏時加 .hidden class
+        ─────────────────────────────────────────────── */
+        .work-card.hidden {
+            display: none;
+        }
+
+        /* 篩選動畫：從下方淡入 */
+        .work-card.animate-in {
+            animation: cardIn 0.3s ease forwards;
+        }
+
+        @keyframes cardIn {
+            from { opacity: 0; transform: scale(0.95) translateY(10px); }
+            to   { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        /* 無結果提示 */
+        .no-results {
+            display: none;
+            grid-column: 1 / -1;   /* 橫跨所有欄 */
+            text-align: center;
+            padding: var(--space-16) 0;
+            color: var(--color-text-muted);
+        }
+
+        .no-results.show {
+            display: block;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="page-loader">
+        <div class="loader-ring"></div>
+        <p class="loader-text">Loading</p>
+    </div>
+
+    <header class="site-header">
+        <nav class="site-nav">
+            <div class="container">
+                <a href="index.html" class="nav-logo">龍蝦俠</a>
+                <ul class="nav-links">
+                    <li><a href="index.html">首頁</a></li>
+                    <li><a href="about.html">關於</a></li>
+                    <li><a href="works.html">作品集</a></li>
+                    <li><a href="interactive.html">互動體驗</a></li>
+                    <li><a href="chat.html">聊天室</a></li>
+                    <li><a href="contact.html">聯絡</a></li>
+                </ul>
+                <button class="nav-toggle" aria-label="開啟選單" aria-expanded="false">
+                    <span></span><span></span><span></span>
+                </button>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+
+        <!-- Hero -->
+        <section class="works-hero">
+            <div class="container">
+                <span class="section-tag reveal">Portfolio</span>
+                <h1 class="reveal reveal-delay-1">作品集</h1>
+            </div>
+        </section>
+
+        <!-- 篩選 + 作品格 -->
+        <section class="works-section">
+            <div class="container">
+
+                <!-- 篩選按鈕
+                     data-filter：JS 讀取此屬性判斷篩選條件 -->
+                <div class="filter-section">
+                    <div class="filter-bar">
+                        <span class="filter-label">分類：</span>
+                        <button class="filter-btn active" data-filter="all">全部</button>
+                        <button class="filter-btn" data-filter="generative">生成藝術</button>
+                        <button class="filter-btn" data-filter="interactive">互動裝置</button>
+                        <button class="filter-btn" data-filter="video">影像</button>
+                        <span class="works-count">顯示 <span id="countDisplay">8</span> 件作品</span>
+                    </div>
+                </div>
+
+                <!-- 作品格狀排列
+                     每張卡片用 data-category 標記分類，
+                     讓 JS 知道哪些該顯示、哪些該隱藏 -->
+                <div class="works-grid" id="worksGrid">
+
+                    <!-- 作品 1 -->
+                    <article class="work-card reveal" data-category="generative">
+                        <div class="work-thumb">
+                            <div class="work-img w1"></div>
+                            <div class="work-overlay">
+                                <div class="overlay-content">
+                                    <h3>數位海潮</h3>
+                                    <p>2024 · 生成藝術</p>
+                                    <span class="overlay-btn">查看作品</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="work-meta">
+                            <span class="work-title">數位海潮</span>
+                            <span class="work-tag generative">生成藝術</span>
+                        </div>
+                    </article>
+
+                    <!-- 作品 2 -->
+                    <article class="work-card reveal reveal-delay-1" data-category="generative">
+                        <div class="work-thumb">
+                            <div class="work-img w2"></div>
+                            <div class="work-overlay">
+                                <div class="overlay-content">
+                                    <h3>粒子宇宙</h3>
+                                    <p>2024 · 生成藝術</p>
+                                    <span class="overlay-btn">查看作品</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="work-meta">
+                            <span class="work-title">粒子宇宙</span>
+                            <span class="work-tag generative">生成藝術</span>
+                        </div>
+                    </article>
+
+                    <!-- 作品 3 -->
+                    <article class="work-card reveal reveal-delay-2" data-category="interactive">
+                        <div class="work-thumb">
+                            <div class="work-img w3"></div>
+                            <div class="work-overlay">
+                                <div class="overlay-content">
+                                    <h3>聲波幾何</h3>
+                                    <p>2023 · 互動裝置</p>
+                                    <span class="overlay-btn">查看作品</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="work-meta">
+                            <span class="work-title">聲波幾何</span>
+                            <span class="work-tag interactive">互動裝置</span>
+                        </div>
+                    </article>
+
+                    <!-- 作品 4 -->
+                    <article class="work-card reveal" data-category="interactive">
+                        <div class="work-thumb">
+                            <div class="work-img w4"></div>
+                            <div class="work-overlay">
+                                <div class="overlay-content">
+                                    <h3>鏡中鏡</h3>
+                                    <p>2023 · 互動裝置</p>
+                                    <span class="overlay-btn">查看作品</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="work-meta">
+                            <span class="work-title">鏡中鏡</span>
+                            <span class="work-tag interactive">互動裝置</span>
+                        </div>
+                    </article>
+
+                    <!-- 作品 5 -->
+                    <article class="work-card reveal reveal-delay-1" data-category="video">
+                        <div class="work-thumb">
+                            <div class="work-img w5"></div>
+                            <div class="work-overlay">
+                                <div class="overlay-content">
+                                    <h3>時間的顏色</h3>
+                                    <p>2023 · 影像</p>
+                                    <span class="overlay-btn">查看作品</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="work-meta">
+                            <span class="work-title">時間的顏色</span>
+                            <span class="work-tag video">影像</span>
+                        </div>
+                    </article>
+
+                    <!-- 作品 6 -->
+                    <article class="work-card reveal reveal-delay-2" data-category="generative">
+                        <div class="work-thumb">
+                            <div class="work-img w6"></div>
+                            <div class="work-overlay">
+                                <div class="overlay-content">
+                                    <h3>呼吸機器</h3>
+                                    <p>2022 · 生成藝術</p>
+                                    <span class="overlay-btn">查看作品</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="work-meta">
+                            <span class="work-title">呼吸機器</span>
+                            <span class="work-tag generative">生成藝術</span>
+                        </div>
+                    </article>
+
+                    <!-- 作品 7 -->
+                    <article class="work-card reveal" data-category="interactive">
+                        <div class="work-thumb">
+                            <div class="work-img w7"></div>
+                            <div class="work-overlay">
+                                <div class="overlay-content">
+                                    <h3>光的語言</h3>
+                                    <p>2022 · 互動裝置</p>
+                                    <span class="overlay-btn">查看作品</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="work-meta">
+                            <span class="work-title">光的語言</span>
+                            <span class="work-tag interactive">互動裝置</span>
+                        </div>
+                    </article>
+
+                    <!-- 作品 8 -->
+                    <article class="work-card reveal reveal-delay-1" data-category="video">
+                        <div class="work-thumb">
+                            <div class="work-img w8"></div>
+                            <div class="work-overlay">
+                                <div class="overlay-content">
+                                    <h3>海洋記憶</h3>
+                                    <p>2022 · 影像</p>
+                                    <span class="overlay-btn">查看作品</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="work-meta">
+                            <span class="work-title">海洋記憶</span>
+                            <span class="work-tag video">影像</span>
+                        </div>
+                    </article>
+
+                    <!-- 無結果提示 -->
+                    <div class="no-results" id="noResults">
+                        <p>此分類目前沒有作品</p>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="site-footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <p class="footer-logo">龍蝦俠</p>
+                    <p>新媒體藝術家<br>以代碼為畫筆，以螢幕為畫布</p>
+                </div>
+                <div class="footer-nav">
+                    <h4>頁面</h4>
+                    <ul>
+                        <li><a href="index.html">首頁</a></li>
+                        <li><a href="about.html">關於</a></li>
+                        <li><a href="works.html">作品集</a></li>
+                        <li><a href="interactive.html">互動體驗</a></li>
+                        <li><a href="chat.html">聊天室</a></li>
+                    <li><a href="chat.html">聊天室</a></li>
+                        <li><a href="contact.html">聯絡</a></li>
+                    </ul>
+                </div>
+                <div class="footer-social">
+                    <h4>社群</h4>
+                    <ul>
+                        <li><a href="#" target="_blank" rel="noopener">Instagram</a></li>
+                        <li><a href="#" target="_blank" rel="noopener">GitHub</a></li>
+                        <li><a href="#" target="_blank" rel="noopener">Behance</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>© 2024 龍蝦俠 · 新媒體藝術家 · 保留所有權利</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/main.js"></script>
+
+    <!-- ══════════════════════════════════════════════
+         頁面專屬 JS：作品篩選功能
+         ══════════════════════════════════════════════
+
+         【篩選邏輯】
+         1. 讀取按下的按鈕 data-filter 值
+         2. 遍歷所有作品卡片，比對 data-category
+         3. 符合的卡片顯示，不符合的加上 .hidden
+         4. 更新顯示數量計數
+    ══════════════════════════════════════════════════ -->
+    <script>
+
+        const filterBtns    = document.querySelectorAll('.filter-btn');
+        const workCards     = document.querySelectorAll('.work-card');
+        const countDisplay  = document.getElementById('countDisplay');
+        const noResults     = document.getElementById('noResults');
+
+        filterBtns.forEach(function (btn) {
+            btn.addEventListener('click', function () {
+
+                /* 1. 更新按鈕的 active 狀態 */
+                filterBtns.forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+
+                /* 2. 取得篩選條件 */
+                const filter = this.getAttribute('data-filter');
+
+                /* 3. 篩選作品卡片 */
+                let visibleCount = 0;
+
+                workCards.forEach(function (card) {
+                    const category = card.getAttribute('data-category');
+
+                    /* 'all' 顯示全部；否則比對 category */
+                    if (filter === 'all' || category === filter) {
+                        card.classList.remove('hidden');
+                        card.classList.remove('animate-in');
+
+                        /* 強制重繪（讓動畫可以重新播放）
+                           requestAnimationFrame：等下一幀再加 class */
+                        requestAnimationFrame(function () {
+                            card.classList.add('animate-in');
+                        });
+
+                        visibleCount++;
+                    } else {
+                        card.classList.add('hidden');
+                    }
+                });
+
+                /* 4. 更新計數 */
+                countDisplay.textContent = visibleCount;
+
+                /* 5. 無結果時顯示提示 */
+                if (visibleCount === 0) {
+                    noResults.classList.add('show');
+                } else {
+                    noResults.classList.remove('show');
+                }
+            });
+        });
+
+    </script>
+
+</body>
+</html>

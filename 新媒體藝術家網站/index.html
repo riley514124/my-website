@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<!--
+    index.html — 首頁
+    =====================================================
+    學習重點：
+    1. 全螢幕 Hero 區塊設計（100vh + position 層疊）
+    2. YouTube 影片背景（iframe 16:9 填滿技巧）
+    3. p5.js 動態粒子背景（疊加在影片上）
+    4. CSS Grid 不對稱特色作品格
+    5. CSS 動畫（animation + keyframes）
+    6. CSS 引用架構：reset → variables → style → index
+    =====================================================
+-->
+<html lang="zh-Hant-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>龍蝦俠 — 新媒體藝術家</title>
+
+    <!-- ══════════════════════════════════════════════
+         CSS 引用（順序不能改變）：
+         1. reset.css     → 消除瀏覽器預設樣式
+         2. variables.css → 全站設計變數（色彩/字體/間距）
+         3. style.css     → 共用版型（nav / footer / 按鈕 / 動畫）
+         4. index.css     → 首頁專屬樣式（hero / video BG / works）
+    ══════════════════════════════════════════════════ -->
+    <link rel="stylesheet" href="css/reset.css">
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/index.css">
+
+    <!-- 頁面專屬樣式已全部移至 css/index.css，此處不再寫 <style> -->
+</head>
+<body>
+
+    <div class="page-loader">
+        <div class="loader-ring"></div>
+        <p class="loader-text">Loading</p>
+    </div>
+
+    <!-- 導覽列（透明浮在 Hero 上）-->
+    <header class="site-header">
+        <nav class="site-nav">
+            <div class="container">
+                <a href="index.html" class="nav-logo">龍蝦俠</a>
+                <ul class="nav-links">
+                    <li><a href="index.html">首頁</a></li>
+                    <li><a href="about.html">關於</a></li>
+                    <li><a href="works.html">作品集</a></li>
+                    <li><a href="interactive.html">互動體驗</a></li>
+                    <li><a href="chat.html">聊天室</a></li>
+                    <li><a href="contact.html">聯絡</a></li>
+                </ul>
+                <button class="nav-toggle" aria-label="開啟選單" aria-expanded="false">
+                    <span></span><span></span><span></span>
+                </button>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+
+        <!-- ══════════════════════════════════════════
+             HERO 第一個 Section：純 YouTube 影片背景
+             Layer 0：YouTube iframe（全螢幕覆蓋）
+             Layer 1：深色半透明遮罩（讓文字易讀）
+             Layer 2：底部漸層（銜接下方淡色頁面）
+             Layer 3：標題文字 + 按鈕
+
+             【學習重點：YouTube 影片背景技術】
+             - iframe 使用 min-width / min-height 確保填滿
+             - autoplay + mute 是瀏覽器允許自動播放的必要條件
+             - pointer-events: none 防止使用者誤點影片
+        ══════════════════════════════════════════════ -->
+        <!-- ══════════════════════════════════════════
+             HERO：純影片背景（無文字遮擋）
+             載入即佔滿整個視窗，影片自動循環播放。
+             Nav 在此區域自動切換為白字/透明底，
+             捲出此區後還原為淡色主題樣式。
+
+             【Layer 層疊順序（由下至上）】
+             Layer 0：YouTube iframe（全螢幕）
+             Layer 1：深色半透明遮罩（提升影片清晰感）
+             Layer 2：底部漸層（銜接下方淡色頁面）
+
+             注意：文字已移除，讓影片直接表達藝術家風格
+        ══════════════════════════════════════════════ -->
+        <section class="hero" id="hero">
+
+            <!-- Layer 0：YouTube 影片背景 -->
+            <div class="hero-video-bg">
+                <iframe
+                    src="https://www.youtube-nocookie.com/embed/hcQ_2ck4JeY?autoplay=1&mute=1&loop=1&playlist=hcQ_2ck4JeY&controls=0&showinfo=0&rel=0&disablekb=1&iv_load_policy=3&modestbranding=1&playsinline=1&enablejsapi=1"
+                    title="2024 北藝大簡介 — 國立臺北藝術大學校園影片"
+                    frameborder="0"
+                    allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+                    allowfullscreen>
+                </iframe>
+            </div>
+
+            <!-- Layer 1：半透明深色遮罩 -->
+            <div class="hero-video-overlay"></div>
+
+            <!-- Layer 2：底部漸層（銜接下方淡色區塊）-->
+            <div class="hero-gradient"></div>
+
+        </section>
+
+        <!-- ══════════════════════════════════════════
+             About 預覽 第二個 Section：
+             p5.js 粒子動畫作為背景
+             【學習重點：p5.js Instance Mode 整合】
+             - canvas 放入 #about-canvas-container
+             - 粒子顏色配合淡色主題（深色粒子在奶白底上）
+        ══════════════════════════════════════════════ -->
+        <section class="about-preview section" id="about" style="position:relative; overflow:hidden;">
+
+            <!-- p5.js 粒子背景（疊在 section 最底層）-->
+            <div id="about-canvas-container"
+                 style="position:absolute; inset:0; z-index:0; pointer-events:none; opacity:0.82;"></div>
+            <!-- 內容需設 position:relative z-index:1 才能在 canvas 上方 -->
+            <div class="container" style="position:relative; z-index:1;">
+                <div class="about-preview-grid">
+
+                    <div class="about-preview-text reveal-from-left">
+                        <span class="section-tag">About</span>
+                        <h2>以代碼為畫筆的<br>新媒體藝術家</h2>
+                        <p>
+                            探索數位技術與人類感知的交界，
+                            龍蝦俠用程式語言創作出介於科技與詩意之間的視覺體驗。
+                        </p>
+
+                        <div class="stats-row">
+                            <div class="stat-item">
+                                <div class="stat-number">8+</div>
+                                <div class="stat-label">完成作品</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-number">4</div>
+                                <div class="stat-label">年創作歷程</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-number">3</div>
+                                <div class="stat-label">展覽參與</div>
+                            </div>
+                        </div>
+
+                        <a href="about.html" class="btn btn--outline">閱讀完整自述</a>
+                    </div>
+
+                    <div class="about-preview-visual reveal-from-right">
+                        <div class="visual-box">🦞</div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- 特色作品 -->
+        <section class="featured-works" id="featured">
+            <div class="container">
+                <div class="section-header">
+                    <span class="section-tag">Featured Works</span>
+                    <h2 class="section-title reveal">精選作品</h2>
+                    <p class="section-subtitle reveal reveal-delay-1">
+                        生成藝術、互動裝置、影像創作
+                    </p>
+                </div>
+
+                <!-- 不對稱 Grid 版面的 6 件作品 -->
+                <div class="featured-grid">
+
+                    <article class="work-card reveal" data-category="generative">
+                        <div class="work-thumb">
+                            <div class="work-img w1"></div>
+                            <div class="work-overlay">
+                                <div class="overlay-content">
+                                    <h3>數位海潮</h3>
+                                    <p>生成藝術 · 2024</p>
+                                    <span class="overlay-btn">查看</span>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="work-card reveal reveal-delay-1" data-category="interactive">
+                        <div class="work-thumb">
+                            <div class="work-img w3"></div>
+                            <div class="work-overlay">
+                                <div class="overlay-content">
+                                    <h3>聲波幾何</h3>
+                                    <p>互動裝置 · 2023</p>
+                                    <span class="overlay-btn">查看</span>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="work-card reveal reveal-delay-2" data-category="video">
+                        <div class="work-thumb">
+                            <div class="work-img w5"></div>
+                            <div class="work-overlay">
+                                <div class="overlay-content">
+                                    <h3>時間的顏色</h3>
+                                    <p>影像 · 2023</p>
+                                    <span class="overlay-btn">查看</span>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="work-card reveal reveal-delay-1" data-category="interactive">
+                        <div class="work-thumb">
+                            <div class="work-img w4"></div>
+                            <div class="work-overlay">
+                                <div class="overlay-content">
+                                    <h3>鏡中鏡</h3>
+                                    <p>互動裝置 · 2023</p>
+                                    <span class="overlay-btn">查看</span>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="work-card reveal reveal-delay-2" data-category="generative">
+                        <div class="work-thumb">
+                            <div class="work-img w6"></div>
+                            <div class="work-overlay">
+                                <div class="overlay-content">
+                                    <h3>呼吸機器</h3>
+                                    <p>生成藝術 · 2022</p>
+                                    <span class="overlay-btn">查看</span>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="work-card reveal reveal-delay-3" data-category="interactive">
+                        <div class="work-thumb">
+                            <div class="work-img w7"></div>
+                            <div class="work-overlay">
+                                <div class="overlay-content">
+                                    <h3>光的語言</h3>
+                                    <p>互動裝置 · 2022</p>
+                                    <span class="overlay-btn">查看</span>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+
+                </div>
+
+                <div style="text-align:center; margin-top: var(--space-8);">
+                    <a href="works.html" class="btn btn--outline reveal">查看所有作品</a>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- CTA -->
+        <section class="cta-section">
+            <div class="container">
+                <h2 class="reveal">想一起創作什麼嗎？</h2>
+                <p class="reveal reveal-delay-1">龍蝦俠歡迎合作提案、展覽邀請，以及任何有趣的想法。</p>
+                <a href="contact.html" class="btn btn--primary reveal reveal-delay-2">說聲嗨 👋</a>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="site-footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <p class="footer-logo">龍蝦俠</p>
+                    <p>新媒體藝術家<br>以代碼為畫筆，以螢幕為畫布</p>
+                </div>
+                <div class="footer-nav">
+                    <h4>頁面</h4>
+                    <ul>
+                        <li><a href="index.html">首頁</a></li>
+                        <li><a href="about.html">關於</a></li>
+                        <li><a href="works.html">作品集</a></li>
+                        <li><a href="interactive.html">互動體驗</a></li>
+                        <li><a href="chat.html">聊天室</a></li>
+                    <li><a href="chat.html">聊天室</a></li>
+                        <li><a href="contact.html">聯絡</a></li>
+                    </ul>
+                </div>
+                <div class="footer-social">
+                    <h4>社群</h4>
+                    <ul>
+                        <li><a href="#" target="_blank" rel="noopener">Instagram</a></li>
+                        <li><a href="#" target="_blank" rel="noopener">GitHub</a></li>
+                        <li><a href="#" target="_blank" rel="noopener">Behance</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>© 2024 龍蝦俠 · 新媒體藝術家 · 保留所有權利</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- ══════════════════════════════════════════════
+         引入 p5.js 本體（必須在 sketch 檔之前）
+    ══════════════════════════════════════════════════ -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+    <script src="js/main.js"></script>
+
+    <!-- ══════════════════════════════════════════════
+         Hero 粒子背景 Sketch（獨立 JS 檔）
+
+         【為什麼要獨立成 .js 檔？】
+         1. HTML 保持清爽，邏輯集中在 JS 檔
+         2. 方便修改 sketch 而不動 HTML
+         3. 瀏覽器可以快取 .js 檔（減少重複下載）
+         4. 多個頁面可以共用同一個 sketch 檔
+    ══════════════════════════════════════════════════ -->
+    <script src="p5/hero-sketch.js"></script>
+
+    <!-- 所有 work-card / work-img 樣式已移至 css/index.css -->
+
+</body>
+</html>

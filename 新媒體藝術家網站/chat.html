@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<!--
+    chat.html — 即時聊天室
+    =====================================================================
+    學習重點：
+    1. Firebase Realtime Database 即時資料庫整合
+    2. Firebase SDK v9（模組化）vs v8（相容模式）的差異
+    3. onValue() 即時監聽資料變化（WebSocket 底層）
+    4. push() 寫入新資料並自動產生唯一 ID
+    5. limitToLast() 只取最新 N 筆，避免載入全部歷史訊息
+    6. 聊天室 UX 設計：自動捲到底部、快捷鍵送出、字數限制
+    7. 連線狀態偵測（.info/connected 特殊節點）
+    =====================================================================
+
+    【Firebase 設定說明】
+    在使用本頁面之前，請先至 https://console.firebase.google.com
+    建立專案並取得設定金鑰，填入下方 JS 區塊的 firebaseConfig 物件。
+    步驟詳見頁面底部的說明卡片，或參閱 Firebase 教學講義。
+    =====================================================================
+-->
+<html lang="zh-Hant-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>即時聊天室 — 龍蝦俠</title>
+
+    <!-- ══════════════════════════════════════════════
+         CSS 引用（順序不能改變）：
+         1. reset.css     → 消除瀏覽器預設樣式
+         2. variables.css → 全站設計變數（色彩/字體/間距）
+         3. style.css     → 共用版型（nav / footer / 按鈕）
+         4. chat.css      → 本頁面專屬樣式（聊天室 UI）
+    ══════════════════════════════════════════════════ -->
+    <link rel="stylesheet" href="css/reset.css">
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/chat.css">
+</head>
+<body>
+
+    <!-- ══════════════════════════════════════════════
+         頁面讀取動畫（與其他頁面一致）
+    ══════════════════════════════════════════════════ -->
+    <div class="page-loader">
+        <div class="loader-ring"></div>
+        <p class="loader-text">Loading</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════
+         導覽列（與全站共用，已加入「聊天室」連結）
+    ══════════════════════════════════════════════════ -->
+    <header class="site-header">
+        <nav class="site-nav">
+            <div class="container">
+                <a href="index.html" class="nav-logo">龍蝦俠</a>
+                <ul class="nav-links">
+                    <li><a href="index.html">首頁</a></li>
+                    <li><a href="about.html">關於</a></li>
+                    <li><a href="works.html">作品集</a></li>
+                    <li><a href="interactive.html">互動體驗</a></li>
+                    <li><a href="chat.html" class="nav-active">聊天室</a></li>
+                    <li><a href="contact.html">聯絡</a></li>
+                </ul>
+                <button class="nav-toggle" aria-label="開啟選單" aria-expanded="false">
+                    <span></span><span></span><span></span>
+                </button>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+
+        <!-- ══════════════════════════════════════════
+             HERO 標題區：較矮的頁首，顯示頁面標題
+        ══════════════════════════════════════════════ -->
+        <section class="chat-hero">
+            <div class="container">
+
+                <!-- 即時狀態標籤（含閃爍綠點） -->
+                <div class="chat-hero__tag">
+                    <span class="chat-hero__dot"></span>
+                    LIVE CHAT
+                </div>
+
+                <h1>即時聊天室</h1>
+                <p>與藝術家、觀眾即時交流——任何關於作品、創作過程的想法都歡迎分享。</p>
+            </div>
+        </section>
+
+        <!-- ══════════════════════════════════════════
+             Firebase 設定提示卡
+             （尚未填入 API Key 時由 JS 自動顯示，開發用）
+        ══════════════════════════════════════════════ -->
+        <div class="container">
+            <div class="chat-config-notice" id="configNotice">
+                <div class="chat-config-notice__title">⚠️ 尚未設定 Firebase 金鑰</div>
+                <p>請將下方的佔位符替換為你的 Firebase 專案設定值：</p>
+                <code>const firebaseConfig = {
+  apiKey:            "YOUR_API_KEY",
+  authDomain:        "YOUR_PROJECT_ID.firebaseapp.com",
+  databaseURL:       "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+  projectId:         "YOUR_PROJECT_ID",
+  storageBucket:     "YOUR_PROJECT_ID.firebasestorage.app",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId:             "YOUR_APP_ID"
+};</code>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════════
+             聊天室主要版型（左右分欄）
+        ══════════════════════════════════════════════ -->
+        <section class="section">
+            <div class="container">
+                <div class="chat-layout">
+
+                    <!-- ────────────────────────────────
+                         左欄：聊天主區
+                    ──────────────────────────────────── -->
+                    <div class="chat-main">
+
+                        <!-- 連線狀態列 -->
+                        <div class="chat-status-bar" id="statusBar">
+                            <div class="chat-status-bar__dot"></div>
+                            <span id="statusText">正在連線至 Firebase...</span>
+                        </div>
+
+                        <!-- ────────────────────────────────
+                             訊息顯示區
+                             Firebase 的 onValue() 監聽器會在
+                             資料有任何變化時，立即更新此區塊
+                        ──────────────────────────────────── -->
+                        <div class="chat-messages" id="chatMessages">
+                            <!-- 空狀態提示（無訊息時顯示） -->
+                            <div class="chat-empty" id="emptyState">
+                                <div class="chat-empty__icon">💬</div>
+                                <p>目前還沒有訊息</p>
+                                <p>成為第一個留言的人吧！</p>
+                            </div>
+                            <!-- 訊息由 JavaScript 動態插入此處 -->
+                        </div>
+
+                        <!-- ────────────────────────────────
+                             輸入表單
+                             使用 preventDefault() 接管 submit 事件，
+                             改由 JavaScript 呼叫 Firebase push() 寫入
+                        ──────────────────────────────────── -->
+                        <form class="chat-form" id="chatForm" autocomplete="off">
+
+                            <!-- 第一列：名稱輸入框 -->
+                            <div class="chat-form__row">
+                                <input
+                                    class="chat-input chat-input--name"
+                                    type="text"
+                                    id="nameInput"
+                                    placeholder="你的名稱"
+                                    maxlength="20"
+                                    required
+                                    aria-label="輸入名稱"
+                                >
+                                <!-- 顯示剩餘字數（由 JS 更新） -->
+                                <span class="chat-form__hint" id="nameCount">0 / 20</span>
+                            </div>
+
+                            <!-- 第二列：訊息輸入框 + 送出按鈕 -->
+                            <div class="chat-form__row">
+                                <textarea
+                                    class="chat-input chat-input--message"
+                                    id="messageInput"
+                                    placeholder="輸入訊息… (Enter 送出，Shift+Enter 換行)"
+                                    maxlength="200"
+                                    required
+                                    aria-label="輸入訊息"
+                                ></textarea>
+
+                                <!-- 送出按鈕（disabled 時為灰色，表示尚未連線） -->
+                                <button
+                                    class="chat-send-btn"
+                                    type="submit"
+                                    id="sendBtn"
+                                    disabled
+                                    aria-label="送出訊息"
+                                >送出</button>
+                            </div>
+
+                            <!-- 字數提示 -->
+                            <div class="chat-form__hint" id="msgCount">0 / 200</div>
+
+                        </form>
+
+                    </div>
+                    <!-- end .chat-main -->
+
+                    <!-- ────────────────────────────────
+                         右欄：側邊資訊欄
+                    ──────────────────────────────────── -->
+                    <aside class="chat-sidebar">
+
+                        <!-- 即時統計卡片 -->
+                        <div class="chat-card">
+                            <div class="chat-card__title">即時統計</div>
+
+                            <div class="chat-stat">
+                                <div>
+                                    <div class="chat-stat__number" id="msgCountDisplay">—</div>
+                                    <div style="font-size: var(--fs-xs); color: var(--color-text-dim);">則訊息</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 說明卡片 -->
+                        <div class="chat-card">
+                            <div class="chat-card__title">使用說明</div>
+                            <div class="chat-info">
+                                <p>這是一個由 Firebase Realtime Database 驅動的即時聊天室。</p>
+                                <p>不需登入，輸入名稱即可參與討論。</p>
+                            </div>
+                        </div>
+
+                        <!-- 規則卡片 -->
+                        <div class="chat-card">
+                            <div class="chat-card__title">聊天規則</div>
+                            <ul class="chat-rules">
+                                <li>請保持友善與尊重</li>
+                                <li>歡迎討論藝術與創作</li>
+                                <li>名稱上限 20 字</li>
+                                <li>訊息上限 200 字</li>
+                                <li>按 Enter 快速送出</li>
+                            </ul>
+                        </div>
+
+                        <!-- 技術說明卡片（教學用途） -->
+                        <div class="chat-card">
+                            <div class="chat-card__title">技術說明</div>
+                            <div class="chat-info" style="font-family: var(--font-mono); font-size: var(--fs-xs);">
+                                <p>資料庫：Firebase Realtime DB</p>
+                                <p>更新方式：WebSocket 長連線</p>
+                                <p>資料節點：/messages</p>
+                                <p>排序：時間戳記升序</p>
+                                <p>顯示上限：最新 100 則</p>
+                            </div>
+                        </div>
+
+                    </aside>
+                    <!-- end .chat-sidebar -->
+
+                </div>
+                <!-- end .chat-layout -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ══════════════════════════════════════════════
+         頁尾（與全站共用）
+    ══════════════════════════════════════════════════ -->
+    <footer class="site-footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <p class="footer-logo">龍蝦俠</p>
+                    <p>新媒體藝術家<br>以代碼為畫筆，以螢幕為畫布</p>
+                </div>
+                <div class="footer-nav">
+                    <h4>頁面</h4>
+                    <ul>
+                        <li><a href="index.html">首頁</a></li>
+                        <li><a href="about.html">關於</a></li>
+                        <li><a href="works.html">作品集</a></li>
+                        <li><a href="interactive.html">互動體驗</a></li>
+                        <li><a href="chat.html">聊天室</a></li>
+                        <li><a href="contact.html">聯絡</a></li>
+                    </ul>
+                </div>
+                <div class="footer-social">
+                    <h4>社群</h4>
+                    <ul>
+                        <li><a href="#" target="_blank" rel="noopener">Instagram</a></li>
+                        <li><a href="#" target="_blank" rel="noopener">GitHub</a></li>
+                        <li><a href="#" target="_blank" rel="noopener">Behance</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>© 2024 龍蝦俠 · 新媒體藝術家 · 保留所有權利</p>
+            </div>
+        </div>
+    </footer>
+
+
+    <!-- ==================================================
+         Firebase SDK 載入
+         ==================================================
+
+         【v8（相容模式）vs v9（模組化）說明】
+
+         ▌ v8（CDN 相容模式）← 本頁使用此版本
+           - 透過 <script> 標籤直接引入，全域變數掛載到 firebase 物件
+           - 語法：firebase.database().ref('messages')
+           - 優點：無需打包工具（Webpack/Vite），純 HTML 可直接使用
+           - 適合：課堂教學、快速原型、純靜態頁面
+
+         ▌ v9（模組化 Modular）
+           - 使用 ES Module import 語法
+           - 語法：import { getDatabase, ref, onValue } from "firebase/database"
+           - 優點：Tree-shaking（只打包用到的功能），bundle 更小
+           - 適合：正式專案、使用 Vite / Webpack / Next.js 等框架
+
+         【CDN URL 說明】
+         www.gstatic.com 是 Google 自有的靜態資源 CDN，
+         載入速度快，且有版本號固定，不會因 Firebase 升版而損壞。
+    ================================================== -->
+
+    <!-- Firebase 核心初始化模組（必須第一個載入） -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+
+    <!-- Firebase Realtime Database 模組（即時資料庫） -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
+    <!-- 全站共用 JavaScript（導覽列、ScrollReveal 等） -->
+    <script src="js/main.js"></script>
+
+    <!-- ==================================================
+         聊天室核心邏輯
+    ================================================== -->
+    <script>
+    /* ====================================================
+       【STEP 1】Firebase 專案設定
+       ====================================================
+
+       請至 https://console.firebase.google.com 執行以下步驟：
+       1. 新增專案（Add project）
+       2. 進入專案 → 點擊「</> 網頁」圖示新增網頁應用程式
+       3. 複製「firebaseConfig」物件的值
+       4. 將下方的佔位符替換為你的真實金鑰
+
+       【各欄位說明】
+       apiKey            → 識別你的應用程式（不是密碼，可公開）
+       authDomain        → Firebase Authentication 網域
+       databaseURL       → Realtime Database 的 WebSocket 端點（重要！）
+       projectId         → 專案 ID（在所有 Firebase 服務中通用）
+       storageBucket     → Firebase Storage 的 bucket 位址
+       messagingSenderId → Firebase Cloud Messaging 的 Sender ID
+       appId             → 此網頁應用程式的唯一識別碼
+
+       【安全性說明】
+       apiKey 看起來像密碼，但它只是「識別符」，不是「存取憑證」。
+       真正的安全控制在 Firebase 控制台的「規則（Rules）」設定，
+       不在於 apiKey 是否公開。
+    ==================================================== */
+    const firebaseConfig = {
+        apiKey:            "YOUR_API_KEY",           // ← 替換為你的 API Key
+        authDomain:        "YOUR_PROJECT_ID.firebaseapp.com",
+        databaseURL:       "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",  // ← 重要！
+        projectId:         "YOUR_PROJECT_ID",
+        storageBucket:     "YOUR_PROJECT_ID.firebasestorage.app",
+        messagingSenderId: "YOUR_SENDER_ID",
+        appId:             "YOUR_APP_ID"
+    };
+
+    /* ====================================================
+       【偵測是否為佔位符】
+       如果 apiKey 還是佔位符，顯示設定提示卡，
+       並停止執行後續的 Firebase 初始化。
+    ==================================================== */
+    const isConfigured = firebaseConfig.apiKey !== "YOUR_API_KEY";
+
+    if (!isConfigured) {
+        // 顯示設定提示卡
+        document.getElementById("configNotice").classList.add("is-visible");
+
+        // 更新狀態列
+        const statusBar = document.getElementById("statusBar");
+        statusBar.classList.add("chat-status-bar--error");
+        document.getElementById("statusText").textContent = "尚未設定 Firebase 金鑰";
+
+        // 防止繼續執行（throw 會中斷 script 但不影響頁面其他功能）
+        throw new Error("[Chat] Firebase 尚未設定，請填入 firebaseConfig 的金鑰值。");
+    }
+
+
+    /* ====================================================
+       【STEP 2】初始化 Firebase 應用程式
+       ====================================================
+
+       firebase.initializeApp(config) 做了什麼？
+       → 建立與 Firebase 伺服器的連線憑證
+       → 初始化各服務（Database、Auth、Storage…）的 SDK
+       → 返回一個 FirebaseApp 實例（可同時管理多個專案）
+
+       一個頁面只能呼叫一次 initializeApp()，
+       重複呼叫會拋出 "Firebase App named '[DEFAULT]' already exists" 錯誤。
+    ==================================================== */
+    firebase.initializeApp(firebaseConfig);
+
+    /* ====================================================
+       【STEP 3】取得 Realtime Database 實例
+       ====================================================
+
+       firebase.database() 返回 Database 服務實例。
+       所有的讀寫操作都從這個實例開始。
+    ==================================================== */
+    const db = firebase.database();
+
+    /* ====================================================
+       【STEP 4】建立資料節點參照（Reference）
+       ====================================================
+
+       db.ref('messages') 建立一個指向資料庫
+       根節點 /messages 的「參照物件（Reference）」。
+
+       Firebase Realtime Database 的資料結構是 JSON 樹狀格式：
+       {
+         "messages": {
+           "-唯一ID_1": { name: "Alice", text: "Hi!", ts: 1700000000000 },
+           "-唯一ID_2": { name: "Bob",   text: "Hello!", ts: 1700000001000 },
+           ...
+         }
+       }
+
+       ref() 就像是指向這棵樹中某個節點的「書籤」。
+    ==================================================== */
+    const messagesRef = db.ref("messages");
+
+    /* ====================================================
+       【STEP 5】設定常數與 DOM 元素快取
+       ====================================================
+
+       將常用的 DOM 元素存入變數，
+       避免每次都重新呼叫 getElementById（效能優化）
+    ==================================================== */
+    const MAX_MSG_LENGTH  = 200;  // 訊息最大字數
+    const MAX_NAME_LENGTH = 20;   // 名稱最大字數
+    const MAX_DISPLAY     = 100;  // 最多顯示幾則訊息（用 limitToLast）
+
+    const chatMessages  = document.getElementById("chatMessages");
+    const emptyState    = document.getElementById("emptyState");
+    const nameInput     = document.getElementById("nameInput");
+    const messageInput  = document.getElementById("messageInput");
+    const sendBtn       = document.getElementById("sendBtn");
+    const chatForm      = document.getElementById("chatForm");
+    const statusBar     = document.getElementById("statusBar");
+    const statusText    = document.getElementById("statusText");
+    const nameCount     = document.getElementById("nameCount");
+    const msgCount      = document.getElementById("msgCount");
+    const msgCountDisplay = document.getElementById("msgCountDisplay");
+
+    // 從 localStorage 恢復上次輸入的名稱（提升使用體驗）
+    nameInput.value = localStorage.getItem("chat_name") || "";
+    updateNameCount();
+
+
+    /* ====================================================
+       【STEP 6】監聽連線狀態
+       ====================================================
+
+       .info/connected 是 Firebase 的特殊節點，
+       當與 Firebase 伺服器的 WebSocket 連線狀態改變時，
+       這個節點的值會自動從 true 變為 false（或相反）。
+
+       用途：偵測使用者是否斷線，並即時更新 UI 狀態。
+    ==================================================== */
+    db.ref(".info/connected").on("value", (snapshot) => {
+        const connected = snapshot.val();  // true：已連線，false：斷線
+
+        if (connected) {
+            // 已連線：更新 UI 為綠色已連線狀態
+            statusBar.className = "chat-status-bar chat-status-bar--connected";
+            statusText.textContent = "已連線至 Firebase Realtime Database";
+            sendBtn.disabled = false;  // 啟用送出按鈕
+        } else {
+            // 斷線中：更新 UI 為紅色斷線狀態
+            statusBar.className = "chat-status-bar chat-status-bar--disconnected";
+            statusText.textContent = "連線中斷，嘗試重新連線…";
+            sendBtn.disabled = true;  // 禁用送出按鈕
+        }
+    });
+
+
+    /* ====================================================
+       【STEP 7】監聽訊息資料（即時讀取）
+       ====================================================
+
+       messagesRef
+         .orderByChild("ts")   → 依照 "ts"（時間戳記）欄位排序
+         .limitToLast(100)     → 只取最後 100 則（避免載入全部歷史）
+         .on("value", cb)      → 訂閱「value」事件，資料有任何變化時觸發 cb
+
+       【on("value") 的特性】
+       - 訂閱後立即觸發一次（初始讀取）
+       - 之後只要 /messages 節點有任何子節點新增/修改/刪除，
+         就會再次觸發（近乎即時，底層是 WebSocket）
+       - 與輪詢（polling）不同，不是定時去問伺服器，
+         而是伺服器主動推播更新（Push 模式）
+
+       【snapshot.val() 說明】
+       snapshot 是 DataSnapshot 物件，
+       .val() 返回該節點的完整 JSON 值。
+       如果節點不存在或無資料，返回 null。
+    ==================================================== */
+    messagesRef
+        .orderByChild("ts")
+        .limitToLast(MAX_DISPLAY)
+        .on("value", (snapshot) => {
+            // 清除畫面上目前所有訊息（準備重新渲染）
+            chatMessages.innerHTML = "";
+
+            const data = snapshot.val();  // 取得節點下所有資料
+
+            if (!data) {
+                // 沒有任何訊息時，顯示空狀態提示
+                chatMessages.appendChild(emptyState);
+                msgCountDisplay.textContent = "0";
+                return;  // 提前結束，不執行後續渲染
+            }
+
+            // 將 Firebase 回傳的物件轉為陣列，並依時間戳記排序
+            // Object.values() → 取得物件的所有值（陣列形式）
+            const msgs = Object.values(data).sort((a, b) => a.ts - b.ts);
+
+            // 更新訊息數量顯示
+            msgCountDisplay.textContent = msgs.length;
+
+            // 逐一渲染每則訊息
+            msgs.forEach((msg) => {
+                chatMessages.appendChild(createMsgElement(msg));
+            });
+
+            // 自動捲動到最底部（顯示最新訊息）
+            scrollToBottom();
+        });
+
+
+    /* ====================================================
+       【STEP 8】建立訊息 DOM 元素的工廠函式
+       ====================================================
+
+       每則訊息的 HTML 結構：
+       <div class="msg">
+         <div class="msg__header">
+           <span class="msg__name">名稱</span>
+           <span class="msg__time">HH:MM</span>
+         </div>
+         <div class="msg__body">訊息內容</div>
+       </div>
+
+       【安全性：textContent vs innerHTML】
+       ⚠️ 使用 textContent 而非 innerHTML 設定使用者輸入的內容，
+       這樣可以防止 XSS（跨站腳本攻擊）。
+       例如：使用者輸入 <script>alert(1)</script> 時，
+       textContent 會當成純文字顯示，不會被執行。
+    ==================================================== */
+    function createMsgElement(msg) {
+        const el = document.createElement("div");
+        el.className = "msg";
+
+        // 時間格式化：將時間戳記轉換為 HH:MM 格式
+        const time = new Date(msg.ts);
+        const timeStr = time.toLocaleTimeString("zh-TW", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false  // 24 小時制
+        });
+
+        // 建立 msg__header
+        const header = document.createElement("div");
+        header.className = "msg__header";
+
+        const nameSpan = document.createElement("span");
+        nameSpan.className = "msg__name";
+        nameSpan.textContent = sanitize(msg.name);  // 使用 textContent 防止 XSS
+
+        const timeSpan = document.createElement("span");
+        timeSpan.className = "msg__time";
+        timeSpan.textContent = timeStr;
+
+        header.appendChild(nameSpan);
+        header.appendChild(timeSpan);
+
+        // 建立 msg__body
+        const body = document.createElement("div");
+        body.className = "msg__body";
+        body.textContent = sanitize(msg.text);  // ← 重要：防止 XSS
+
+        el.appendChild(header);
+        el.appendChild(body);
+
+        return el;
+    }
+
+
+    /* ====================================================
+       【STEP 9】送出訊息（寫入 Firebase）
+       ====================================================
+
+       messagesRef.push(data) 做了什麼？
+       → 在 /messages 節點下新增一個子節點
+       → 自動產生一個時間排序的唯一 ID（如 -NyXk9...）
+       → 將 data 物件儲存到這個新節點
+
+       push() 與 set() 的差異：
+       - set()  → 覆寫指定節點（危險：會刪除既有資料）
+       - push() → 在節點下新增子節點，不影響既有資料（適合聊天訊息）
+    ==================================================== */
+    chatForm.addEventListener("submit", async (e) => {
+        e.preventDefault();  // 阻止表單的預設提交行為（避免頁面重新載入）
+
+        const name = nameInput.value.trim();
+        const text = messageInput.value.trim();
+
+        // 輸入驗證：名稱和訊息都不能是空字串
+        if (!name || !text) return;
+
+        // 儲存名稱到 localStorage，下次不需重新輸入
+        localStorage.setItem("chat_name", name);
+
+        // 禁用送出按鈕，防止重複送出
+        sendBtn.disabled = true;
+        sendBtn.textContent = "送出中…";
+
+        try {
+            // 寫入 Firebase
+            // push() 返回 Promise（使用 async/await 等待完成）
+            await messagesRef.push({
+                name: sanitize(name),  // 名稱（XSS 防護）
+                text: sanitize(text),  // 訊息內容（XSS 防護）
+                ts:   Date.now()       // 時間戳記（毫秒）用於排序
+            });
+
+            // 送出成功：清空訊息輸入框（保留名稱）
+            messageInput.value = "";
+            updateMsgCount();
+            messageInput.focus();  // 焦點回到訊息輸入框，方便連續發送
+
+        } catch (err) {
+            // 送出失敗：顯示錯誤提示
+            console.error("[Chat] 訊息送出失敗：", err);
+            alert("訊息送出失敗，請確認網路連線或 Firebase 規則設定。");
+        } finally {
+            // 無論成功或失敗，都恢復送出按鈕狀態
+            sendBtn.disabled = false;
+            sendBtn.textContent = "送出";
+        }
+    });
+
+
+    /* ====================================================
+       【STEP 10】Enter 鍵快速送出
+       ====================================================
+
+       使用者按 Enter → 送出訊息
+       使用者按 Shift+Enter → 在 textarea 中換行（保留原生行為）
+    ==================================================== */
+    messageInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();                      // 阻止 textarea 換行
+            chatForm.dispatchEvent(new Event("submit", { bubbles: true }));  // 觸發送出
+        }
+    });
+
+
+    /* ====================================================
+       【輔助函式】
+    ==================================================== */
+
+    /**
+     * 自動捲動訊息區到最底部
+     * scrollTop = scrollHeight 讓捲軸移到最下方
+     */
+    function scrollToBottom() {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    /**
+     * 更新名稱字數顯示
+     */
+    function updateNameCount() {
+        const len = nameInput.value.length;
+        nameCount.textContent = `${len} / ${MAX_NAME_LENGTH}`;
+    }
+
+    /**
+     * 更新訊息字數顯示
+     */
+    function updateMsgCount() {
+        const len = messageInput.value.length;
+        msgCount.textContent = `${len} / ${MAX_MSG_LENGTH}`;
+    }
+
+    /**
+     * 基本 XSS 防護：移除 HTML 標籤
+     * 注意：這只是基礎防護，配合 textContent 使用才能完全防止 XSS。
+     * 正式專案建議使用 DOMPurify 函式庫做更完整的防護。
+     *
+     * @param {string} str - 使用者輸入的字串
+     * @returns {string} - 移除 HTML 標籤後的安全字串
+     */
+    function sanitize(str) {
+        if (typeof str !== "string") return "";
+        return str
+            .replace(/&/g, "&amp;")   // 先處理 & 避免二次轉義
+            .replace(/</g, "&lt;")    // < 轉義
+            .replace(/>/g, "&gt;")    // > 轉義
+            .replace(/"/g, "&quot;")  // " 轉義
+            .replace(/'/g, "&#39;")   // ' 轉義
+            .substring(0, MAX_MSG_LENGTH); // 截斷超長字串
+    }
+
+    // 綁定字數計數器事件
+    nameInput.addEventListener("input", updateNameCount);
+    messageInput.addEventListener("input", updateMsgCount);
+
+    </script>
+
+</body>
+</html>

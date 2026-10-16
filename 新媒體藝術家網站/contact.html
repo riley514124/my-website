@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<!--
+    contact.html — 聯絡頁面
+    =====================================================
+    學習重點：
+    1. HTML5 語意化表單結構（<form>、<fieldset>、<label>、<input>）
+    2. CSS3 表單視覺設計（自訂 input 樣式、focus 狀態、錯誤/成功狀態）
+    3. JavaScript 表單驗證（即時反饋、正規表達式 Email 驗證）
+    4. CSS Grid 雙欄版面
+    =====================================================
+-->
+<html lang="zh-Hant-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>聯絡 — 龍蝦俠 新媒體藝術家</title>
+
+    <!-- 依序引入共用 CSS（順序不能錯！）-->
+    <link rel="stylesheet" href="css/reset.css">
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/style.css">
+
+    <!-- ══════════════════════════════════════════════
+         頁面專屬 CSS
+         ══════════════════════════════════════════════ -->
+    <style>
+
+        /* ── Hero Banner ─────────────────────────────
+           簡潔的頁面標題區，使用 CSS 漸層背景
+        ─────────────────────────────────────────────── */
+        .contact-hero {
+            padding: var(--space-16) 0 var(--space-10);
+            text-align: center;
+            background:
+                /* 上層：中心輻射漸層（龍蝦橘紅光暈） */
+                radial-gradient(ellipse at 50% 100%,
+                    rgba(255, 69, 0, 0.15) 0%,
+                    transparent 70%),
+                /* 下層：純深黑 */
+                var(--color-bg);
+        }
+
+        .contact-hero .hero-tag {
+            font-size: var(--fs-xs);
+            letter-spacing: 0.3em;
+            text-transform: uppercase;
+            color: var(--color-accent);
+            margin-bottom: var(--space-3);
+        }
+
+        .contact-hero h1 {
+            font-family: var(--font-heading);
+            font-size: var(--fs-2xl);
+            font-weight: var(--fw-bold);
+            line-height: var(--lh-tight);
+            margin-bottom: var(--space-3);
+        }
+
+        .contact-hero p {
+            color: var(--color-text-muted);
+            max-width: 480px;
+            margin: 0 auto;
+        }
+
+        /* ── 聯絡主區塊：雙欄 CSS Grid ──────────────
+           左欄：聯絡資訊卡片
+           右欄：聯絡表單
+
+           CSS Grid 語法：
+           grid-template-columns: 1fr 2fr
+           → 左欄佔 1 份，右欄佔 2 份（總共 3 份）
+        ─────────────────────────────────────────────── */
+        .contact-section {
+            padding: var(--space-12) 0 var(--space-16);
+        }
+
+        .contact-grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr;  /* 左1:右2 的比例 */
+            gap: var(--space-10);
+            align-items: start;  /* 頂端對齊（不強制等高）*/
+        }
+
+        /* ── 左欄：聯絡資訊 ──────────────────────── */
+        .contact-info h2 {
+            font-family: var(--font-heading);
+            font-size: var(--fs-xl);
+            margin-bottom: var(--space-3);
+        }
+
+        .contact-info > p {
+            color: var(--color-text-muted);
+            font-size: var(--fs-sm);
+            line-height: var(--lh-loose);
+            margin-bottom: var(--space-6);
+        }
+
+        /* 聯絡資訊卡片 */
+        .info-card {
+            display: flex;
+            align-items: flex-start;
+            gap: var(--space-3);
+            padding: var(--space-3) 0;
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .info-card:last-child {
+            border-bottom: none;
+        }
+
+        /* 卡片圖示：純 CSS 畫出的圓形圖示背景 */
+        .info-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-md);
+            background-color: rgba(255, 69, 0, 0.1);
+            border: 1px solid rgba(255, 69, 0, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.6rem;    /* 放大 emoji */
+            flex-shrink: 0;       /* 不讓圖示因為內容太長而縮小 */
+        }
+
+        .info-card-text h4 {
+            font-size: var(--fs-xs);
+            font-weight: var(--fw-bold);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--color-text-muted);
+            margin-bottom: 4px;
+        }
+
+        .info-card-text p,
+        .info-card-text a {
+            font-size: var(--fs-sm);
+            color: var(--color-text);
+            transition: color var(--transition-base);
+        }
+
+        .info-card-text a:hover {
+            color: var(--color-accent);
+        }
+
+        /* ── 右欄：表單 ──────────────────────────────
+
+           HTML5 表單元素的設計重點：
+           <label> 和 <input> 的配對（for / id 必須對應）
+           好的 label 可以：
+           1. 提示使用者輸入什麼
+           2. 點擊 label 時，對應的 input 自動獲得焦點
+           3. 改善無障礙（螢幕閱讀器可以讀出標籤）
+        ─────────────────────────────────────────────── */
+        .contact-form-wrap {
+            background-color: var(--color-bg-2);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-lg);
+            padding: var(--space-8);
+        }
+
+        /* 表單欄位群組 */
+        .form-group {
+            margin-bottom: var(--space-4);
+        }
+
+        .form-row {
+            /* 兩個欄位並排 */
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--space-4);
+        }
+
+        /* 標籤 */
+        label {
+            display: block;
+            font-size: var(--fs-xs);
+            font-weight: var(--fw-bold);
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--color-text-muted);
+            margin-bottom: var(--space-1);
+        }
+
+        /* 必填星號 */
+        label .required {
+            color: var(--color-accent);
+            margin-left: 2px;
+        }
+
+        /* 輸入框基礎樣式 */
+        .form-input {
+            width: 100%;
+            padding: var(--space-2) var(--space-3);
+            background-color: var(--color-bg);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            color: var(--color-text);
+            font-size: var(--fs-base);
+            font-family: var(--font-body);
+            line-height: var(--lh-normal);
+            transition: border-color var(--transition-base),
+                        box-shadow var(--transition-base);
+        }
+
+        /* :focus 狀態：使用者點進輸入框時 */
+        .form-input:focus {
+            border-color: var(--color-accent);
+            box-shadow: 0 0 0 3px rgba(255, 69, 0, 0.15); /* 橘色光暈 */
+        }
+
+        /* placeholder 文字樣式 */
+        .form-input::placeholder {
+            color: var(--color-text-dim);
+            font-size: var(--fs-sm);
+        }
+
+        textarea.form-input {
+            height: 160px;
+            resize: vertical;   /* 只允許垂直調整大小 */
+            line-height: var(--lh-normal);
+        }
+
+        /* ── 驗證狀態樣式 ────────────────────────────
+           JS 會根據驗證結果，
+           給 .form-group 加上 .error 或 .success class
+        ─────────────────────────────────────────────── */
+        .form-group.error .form-input {
+            border-color: #e74c3c;
+            box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.15);
+        }
+
+        .form-group.success .form-input {
+            border-color: #2ecc71;
+            box-shadow: 0 0 0 3px rgba(46, 204, 113, 0.15);
+        }
+
+        /* 錯誤提示文字 */
+        .form-error-msg {
+            display: none;          /* 預設隱藏 */
+            font-size: var(--fs-xs);
+            color: #e74c3c;
+            margin-top: var(--space-1);
+        }
+
+        .form-group.error .form-error-msg {
+            display: block;         /* 錯誤時才顯示 */
+        }
+
+        /* 提交按鈕 */
+        .btn-submit {
+            width: 100%;
+            padding: var(--space-3);
+            margin-top: var(--space-2);
+            font-size: var(--fs-base);
+            font-weight: var(--fw-bold);
+            letter-spacing: 0.1em;
+            background-color: var(--color-accent);
+            color: #fff;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: all var(--transition-base);
+            position: relative;
+            overflow: hidden;       /* 讓 ::after 漣漪不超出按鈕 */
+        }
+
+        .btn-submit:hover:not(:disabled) {
+            background-color: var(--color-accent-dark);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-accent);
+        }
+
+        .btn-submit:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        /* ── 送出成功訊息 ─────────────────────────── */
+        .form-success {
+            display: none;           /* 預設隱藏 */
+            text-align: center;
+            padding: var(--space-8) var(--space-4);
+        }
+
+        .form-success.show {
+            display: block;
+            animation: fadeInUp 0.5s ease;
+        }
+
+        .success-icon {
+            font-size: 6rem;
+            margin-bottom: var(--space-4);
+            display: block;
+        }
+
+        .form-success h3 {
+            font-family: var(--font-heading);
+            font-size: var(--fs-xl);
+            margin-bottom: var(--space-2);
+        }
+
+        .form-success p {
+            color: var(--color-text-muted);
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ── RWD 響應式 ──────────────────────────────
+           768px 以下：雙欄變單欄
+        ─────────────────────────────────────────────── */
+        @media (max-width: 768px) {
+            .contact-grid {
+                grid-template-columns: 1fr;   /* 單欄 */
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;   /* 表單欄位也改為單欄 */
+            }
+
+            .contact-form-wrap {
+                padding: var(--space-4);
+            }
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- ══════════════════════════════════════════════
+         頁面載入動畫（共用，每頁都有）
+         main.js 的 initLoader() 負責在載入後隱藏它
+    ══════════════════════════════════════════════════ -->
+    <div class="page-loader">
+        <div class="loader-ring"></div>
+        <p class="loader-text">Loading</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════
+         導覽列（共用 Header）
+         main.js 會自動：
+         - 標記目前頁面的連結為 .active
+         - 捲動時加深背景
+         - 手機版漢堡選單開關
+    ══════════════════════════════════════════════════ -->
+    <header class="site-header">
+        <nav class="site-nav">
+            <div class="container">
+                <!-- Logo：點擊回首頁 -->
+                <a href="index.html" class="nav-logo">龍蝦俠</a>
+
+                <!-- 導覽連結列表 -->
+                <ul class="nav-links">
+                    <li><a href="index.html">首頁</a></li>
+                    <li><a href="about.html">關於</a></li>
+                    <li><a href="works.html">作品集</a></li>
+                    <li><a href="interactive.html">互動體驗</a></li>
+                    <li><a href="chat.html">聊天室</a></li>
+                    <li><a href="contact.html">聯絡</a></li>
+                </ul>
+
+                <!-- 漢堡按鈕（手機版才顯示）
+                     三個 <span> 就是三條橫線
+                     aria-label：給螢幕閱讀器的說明文字 -->
+                <button class="nav-toggle" aria-label="開啟選單" aria-expanded="false">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+        </nav>
+    </header>
+
+    <!-- ══════════════════════════════════════════════
+         主要內容區域
+         <main> 語意標籤：頁面的核心內容
+    ══════════════════════════════════════════════════ -->
+    <main>
+
+        <!-- Hero Banner -->
+        <section class="contact-hero">
+            <div class="container">
+                <p class="hero-tag reveal">聯絡我</p>
+                <h1 class="reveal reveal-delay-1">說聲嗨 👋</h1>
+                <p class="reveal reveal-delay-2">
+                    無論是合作提案、展覽邀請，還是只是想聊聊藝術與科技，<br>
+                    龍蝦俠都很樂意聽你說。
+                </p>
+            </div>
+        </section>
+
+        <!-- 聯絡主區塊 -->
+        <section class="contact-section">
+            <div class="container">
+                <div class="contact-grid">
+
+                    <!-- ── 左欄：聯絡資訊 ────────── -->
+                    <aside class="contact-info reveal-from-left">
+                        <h2>直接聯絡</h2>
+                        <p>回覆時間通常在 1-2 個工作天內。<br>期待與你交流！</p>
+
+                        <!-- 聯絡資訊卡片 -->
+                        <div class="info-card">
+                            <div class="info-icon">✉️</div>
+                            <div class="info-card-text">
+                                <h4>電子郵件</h4>
+                                <a href="mailto:lobster@artmail.com">lobster@artmail.com</a>
+                            </div>
+                        </div>
+
+                        <div class="info-card">
+                            <div class="info-icon">📸</div>
+                            <div class="info-card-text">
+                                <h4>Instagram</h4>
+                                <a href="#" target="_blank" rel="noopener">@lobsterman.art</a>
+                            </div>
+                        </div>
+
+                        <div class="info-card">
+                            <div class="info-icon">💻</div>
+                            <div class="info-card-text">
+                                <h4>GitHub</h4>
+                                <a href="#" target="_blank" rel="noopener">github.com/lobsterman</a>
+                            </div>
+                        </div>
+
+                        <div class="info-card">
+                            <div class="info-icon">📍</div>
+                            <div class="info-card-text">
+                                <h4>所在地</h4>
+                                <p>台灣 · 台北</p>
+                            </div>
+                        </div>
+                    </aside>
+
+                    <!-- ── 右欄：聯絡表單 ─────────
+
+                         novalidate：關閉瀏覽器預設的驗證 UI，
+                         改由我們自己的 JavaScript 處理（外觀更好看）
+                    ─────────────────────────────── -->
+                    <div class="contact-form-wrap reveal-from-right">
+
+                        <!-- 表單本體 -->
+                        <form id="contactForm" novalidate>
+
+                            <!-- 姓名 + Email 並排（form-row）-->
+                            <div class="form-row">
+
+                                <!-- 姓名欄位 -->
+                                <div class="form-group" id="group-name">
+                                    <label for="name">
+                                        姓名 <span class="required">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        id="name"
+                                        name="name"
+                                        class="form-input"
+                                        placeholder="你的名字"
+                                        autocomplete="name"
+                                    >
+                                    <!-- 錯誤訊息（預設隱藏，JS 控制顯示）-->
+                                    <span class="form-error-msg">請輸入你的姓名</span>
+                                </div>
+
+                                <!-- Email 欄位 -->
+                                <div class="form-group" id="group-email">
+                                    <label for="email">
+                                        電子郵件 <span class="required">*</span>
+                                    </label>
+                                    <input
+                                        type="email"
+                                        id="email"
+                                        name="email"
+                                        class="form-input"
+                                        placeholder="your@email.com"
+                                        autocomplete="email"
+                                    >
+                                    <span class="form-error-msg">請輸入有效的 Email 格式</span>
+                                </div>
+                            </div>
+
+                            <!-- 主旨 -->
+                            <div class="form-group" id="group-subject">
+                                <label for="subject">主旨</label>
+                                <input
+                                    type="text"
+                                    id="subject"
+                                    name="subject"
+                                    class="form-input"
+                                    placeholder="例：合作提案、展覽邀請..."
+                                >
+                            </div>
+
+                            <!-- 訊息 -->
+                            <div class="form-group" id="group-message">
+                                <label for="message">
+                                    訊息內容 <span class="required">*</span>
+                                </label>
+                                <!-- textarea：多行文字輸入框 -->
+                                <textarea
+                                    id="message"
+                                    name="message"
+                                    class="form-input"
+                                    placeholder="你想說的話..."
+                                    rows="6"
+                                ></textarea>
+                                <span class="form-error-msg">請輸入訊息內容（至少 10 個字）</span>
+                            </div>
+
+                            <!-- 提交按鈕 -->
+                            <button type="submit" class="btn-submit" id="submitBtn">
+                                送出訊息
+                            </button>
+
+                        </form>
+
+                        <!-- 送出成功畫面（預設隱藏，送出後顯示）-->
+                        <div class="form-success" id="formSuccess">
+                            <span class="success-icon">🦞</span>
+                            <h3>訊息已送出！</h3>
+                            <p>感謝你的來信，龍蝦俠會盡快回覆你。</p>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ══════════════════════════════════════════════
+         頁尾（共用 Footer）
+    ══════════════════════════════════════════════════ -->
+    <footer class="site-footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <p class="footer-logo">龍蝦俠</p>
+                    <p>新媒體藝術家<br>以代碼為畫筆，以螢幕為畫布</p>
+                </div>
+                <div class="footer-nav">
+                    <h4>頁面</h4>
+                    <ul>
+                        <li><a href="index.html">首頁</a></li>
+                        <li><a href="about.html">關於</a></li>
+                        <li><a href="works.html">作品集</a></li>
+                        <li><a href="interactive.html">互動體驗</a></li>
+                        <li><a href="chat.html">聊天室</a></li>
+                    <li><a href="chat.html">聊天室</a></li>
+                        <li><a href="contact.html">聯絡</a></li>
+                    </ul>
+                </div>
+                <div class="footer-social">
+                    <h4>社群</h4>
+                    <ul>
+                        <li><a href="#" target="_blank" rel="noopener">Instagram</a></li>
+                        <li><a href="#" target="_blank" rel="noopener">GitHub</a></li>
+                        <li><a href="#" target="_blank" rel="noopener">Behance</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>© 2024 龍蝦俠 · 新媒體藝術家 · 保留所有權利</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- 共用 JS（最後載入，確保 HTML 已建立）-->
+    <script src="js/main.js"></script>
+
+    <!-- ══════════════════════════════════════════════
+         頁面專屬 JavaScript：表單驗證
+         ══════════════════════════════════════════════
+
+         【JavaScript 表單驗證的三個步驟】
+         1. 攔截 submit 事件（阻止預設送出行為）
+         2. 逐一檢查每個欄位的值
+         3. 有錯誤 → 顯示錯誤訊息；全部正確 → 送出
+    ══════════════════════════════════════════════════ -->
+    <script>
+
+        /* 取得表單和相關元素 */
+        const form       = document.getElementById('contactForm');
+        const submitBtn  = document.getElementById('submitBtn');
+        const formSuccess = document.getElementById('formSuccess');
+
+        /* 取得每個欄位和其群組 */
+        const nameInput    = document.getElementById('name');
+        const emailInput   = document.getElementById('email');
+        const messageInput = document.getElementById('message');
+
+        /* ── 驗證輔助函式 ───────────────────────────
+
+           showError：把 .form-group 標記為錯誤狀態
+           showSuccess：標記為成功狀態
+           clearState：清除所有狀態
+        ─────────────────────────────────────────────── */
+        function showError(groupId, message) {
+            const group = document.getElementById(groupId);
+            const errorMsg = group.querySelector('.form-error-msg');
+            group.classList.remove('success');
+            group.classList.add('error');
+            if (message) errorMsg.textContent = message;
+        }
+
+        function showSuccess(groupId) {
+            const group = document.getElementById(groupId);
+            group.classList.remove('error');
+            group.classList.add('success');
+        }
+
+        function clearState(groupId) {
+            const group = document.getElementById(groupId);
+            group.classList.remove('error', 'success');
+        }
+
+        /* ── Email 格式驗證（正規表達式）──────────────
+
+           正規表達式（Regular Expression / RegEx）是
+           一種用來描述「文字模式」的語法。
+
+           /^[^\s@]+@[^\s@]+\.[^\s@]+$/  的意思：
+           ^           → 從開頭開始
+           [^\s@]+     → 一個或多個字元（不能是空白或 @）
+           @           → 必須有一個 @ 符號
+           [^\s@]+     → 一個或多個字元（域名部分）
+           \.          → 必須有一個點 .
+           [^\s@]+     → 一個或多個字元（如 com、net）
+           $           → 到結尾
+
+           test() 方法：符合回傳 true，不符合回傳 false
+        ─────────────────────────────────────────────── */
+        function isValidEmail(email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
+        }
+
+        /* ── 即時驗證（輸入時）──────────────────────
+
+           在使用者離開輸入框（blur 事件）時即時驗證
+           blur：焦點離開輸入框時觸發
+        ─────────────────────────────────────────────── */
+        nameInput.addEventListener('blur', function () {
+            if (this.value.trim() === '') {
+                showError('group-name', '請輸入你的姓名');
+            } else {
+                showSuccess('group-name');
+            }
+        });
+
+        emailInput.addEventListener('blur', function () {
+            if (this.value.trim() === '') {
+                showError('group-email', '請輸入電子郵件');
+            } else if (!isValidEmail(this.value.trim())) {
+                showError('group-email', '請輸入有效的 Email 格式');
+            } else {
+                showSuccess('group-email');
+            }
+        });
+
+        messageInput.addEventListener('blur', function () {
+            if (this.value.trim().length < 10) {
+                showError('group-message', '訊息至少需要 10 個字');
+            } else {
+                showSuccess('group-message');
+            }
+        });
+
+        /* ── 表單送出驗證 ────────────────────────────
+
+           監聽 submit 事件
+           preventDefault()：阻止表單預設的頁面跳轉行為
+        ─────────────────────────────────────────────── */
+        form.addEventListener('submit', function (event) {
+            event.preventDefault();   /* 阻止預設送出 */
+
+            let isValid = true;
+
+            /* 逐一驗證每個必填欄位 */
+            if (nameInput.value.trim() === '') {
+                showError('group-name', '請輸入你的姓名');
+                isValid = false;
+            } else {
+                showSuccess('group-name');
+            }
+
+            if (!isValidEmail(emailInput.value.trim())) {
+                showError('group-email', '請輸入有效的 Email 格式');
+                isValid = false;
+            } else {
+                showSuccess('group-email');
+            }
+
+            if (messageInput.value.trim().length < 10) {
+                showError('group-message', '訊息至少需要 10 個字');
+                isValid = false;
+            } else {
+                showSuccess('group-message');
+            }
+
+            /* 有任何錯誤 → 停止送出，滾動到第一個錯誤 */
+            if (!isValid) {
+                const firstError = form.querySelector('.form-group.error .form-input');
+                if (firstError) firstError.focus();
+                return;
+            }
+
+            /* ── 模擬送出（真實專案需連接後端 API）── */
+            submitBtn.textContent = '傳送中...';
+            submitBtn.disabled = true;
+
+            /* setTimeout 模擬網路延遲 1.5 秒 */
+            setTimeout(function () {
+                /* 隱藏表單，顯示成功畫面 */
+                form.style.display = 'none';
+                formSuccess.classList.add('show');
+            }, 1500);
+        });
+
+    </script>
+
+</body>
+</html>

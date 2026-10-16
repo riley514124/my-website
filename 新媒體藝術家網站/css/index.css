@@ -1,0 +1,468 @@
+/* ============================================================
+   css/index.css — 首頁（index.html）專屬樣式
+   ============================================================
+
+   【引用順序】
+   index.html 引用順序：
+   1. reset.css     → 歸零
+   2. variables.css → 設計變數
+   3. style.css     → 共用版型
+   4. index.css     → 本檔案（首頁專屬）
+
+   【本檔案負責】
+   - Hero 全螢幕區塊（含 YouTube 影片背景）
+   - About 預覽區塊
+   - Featured Works 特色作品格
+   - CTA 行動呼籲區塊
+   - 首頁專用的作品卡片 CSS（補充 works.html 的選色）
+   ============================================================ */
+
+
+/* ══════════════════════════════════════════════════════════
+   1. BODY — 首頁不需要 padding-top
+   因為 Hero 是全螢幕（100vh），導覽列浮在其上方
+   ══════════════════════════════════════════════════════════ */
+body {
+    padding-top: 0;
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   2. HERO — 全螢幕影片背景區塊
+
+   【層疊結構（由下至上）】
+   Layer 0：.hero-video-bg    → YouTube iframe 影片
+   Layer 1：.hero-video-overlay → 半透明深色遮罩（讓文字易讀）
+   Layer 2：.hero-gradient    → 放射狀漸層（增加底部淡出感）
+   Layer 3：.hero-content     → 標題文字 + 按鈕
+
+   【為什麼 Hero 用深色覆蓋而不用淡色？】
+   影片背景本身是有色彩的，需要一層深色覆蓋才能讓白色文字
+   清晰可讀。這也創造了一個「從深色 Hero → 淡色頁面」的
+   視覺節奏，增加頁面的層次感。
+   ══════════════════════════════════════════════════════════ */
+
+.hero {
+    position: relative;
+    width: 100%;
+    height: 100vh;       /* 100vh = 視窗高度 100% */
+    min-height: 600px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+/* ── YouTube 影片背景容器 ──────────────────────────────────
+
+   【技術說明：讓 YouTube iframe 填滿 Hero 且維持 16:9】
+
+   YouTube iframe 的預設單位是像素，無法直接設定 100vw × 100vh
+   的填滿效果（因為寬高比會跑掉）。
+
+   解法：
+   1. 把 iframe 做得「比視窗大」
+   2. 用 position: absolute + translate(-50%, -50%) 居中
+   3. 用 vw / vh 中的較大值決定尺寸，確保完全覆蓋
+
+   計算公式：
+   - 如果螢幕比 16:9 寬 → 以 width: 100vw 為基準，
+     height = 100vw × 9/16 = 56.25vw
+   - 如果螢幕比 16:9 高 → 以 height: 100vh 為基準，
+     width = 100vh × 16/9 = 177.78vh
+
+   用 min() 取兩者中較大的那個 → 確保永遠填滿
+─────────────────────────────────────────────────────────── */
+.hero-video-bg {
+    position: absolute;
+    inset: 0;            /* = top:0; right:0; bottom:0; left:0 */
+    z-index: 0;
+    overflow: hidden;
+    background-color: #111; /* 影片載入前的底色 */
+}
+
+.hero-video-bg iframe {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+
+    /* 確保 16:9 影片填滿任何寬高比的視窗 */
+    width: 100vw;
+    height: 56.25vw;    /* 100vw × 9/16 */
+    min-height: 100vh;
+    min-width: 177.78vh; /* 100vh × 16/9 */
+
+    transform: translate(-50%, -50%);
+    pointer-events: none; /* 禁止使用者與 iframe 互動 */
+    border: none;
+}
+
+/* 極淡遮罩（原 52% 已移除文字後不再需要厚遮罩）
+   保留 10% 僅增加輕微電影感，讓影片清晰可見 */
+.hero-video-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background-color: rgba(0, 0, 0, 0.10);
+}
+
+/* 底部漸層：讓 Hero 與下方淡色頁面平滑銜接
+   上半段完全透明，只在底部 25% 才開始淡出，影片主體不受影響 */
+.hero-gradient {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    background: linear-gradient(
+        to bottom,
+        transparent 60%,
+        rgba(249, 247, 242, 0.2) 88%,
+        rgba(249, 247, 242, 0.75) 100%
+    );
+}
+
+/* Hero 文字內容（在所有層上方）*/
+.hero-content {
+    position: relative;
+    z-index: 3;
+    text-align: center;
+    padding: 0 var(--space-4);
+    color: #fff;           /* Hero 文字強制白色，覆寫淡色主題的深色文字 */
+}
+
+/* Hero 小標籤 */
+.hero-tag {
+    font-size: var(--fs-xs);
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: var(--space-4);
+    animation: fadeInUp 0.8s ease 0.3s both;
+}
+
+/* 藝術家大名 */
+.hero-name {
+    font-family: var(--font-heading);
+    font-size: clamp(5rem, 12vw, var(--fs-4xl));
+    /* clamp(最小值, 理想值, 最大值)：跟視窗寬度縮放但有上下限 */
+    font-weight: var(--fw-black);
+    line-height: 1;
+    margin-bottom: var(--space-3);
+    letter-spacing: -0.02em;
+    color: #fff;
+    animation: fadeInUp 0.8s ease 0.5s both;
+}
+
+/* 名字底線裝飾：展開動畫 */
+.hero-name .name-underline {
+    position: relative;
+    display: inline-block;
+}
+.hero-name .name-underline::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: var(--color-accent);
+    box-shadow: var(--shadow-accent);
+    animation: expandWidth 0.6s ease 1.2s both;
+    transform-origin: left;
+}
+@keyframes expandWidth {
+    from { transform: scaleX(0); }
+    to   { transform: scaleX(1); }
+}
+
+/* 副標題 */
+.hero-subtitle {
+    font-size: var(--fs-md);
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: var(--space-8);
+    font-style: italic;
+    font-family: var(--font-heading);
+    animation: fadeInUp 0.8s ease 0.7s both;
+}
+
+/* CTA 按鈕群 */
+.hero-cta {
+    display: flex;
+    gap: var(--space-3);
+    justify-content: center;
+    flex-wrap: wrap;
+    animation: fadeInUp 0.8s ease 0.9s both;
+}
+
+/* 在 Hero 上的 btn--outline 改為白色邊框 */
+.hero-content .btn--outline {
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.7);
+}
+.hero-content .btn--outline:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+    border-color: #fff;
+}
+
+/* 捲動提示箭頭 */
+.scroll-hint {
+    position: absolute;
+    bottom: var(--space-6);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-1);
+    color: rgba(255, 255, 255, 0.6);
+    font-size: var(--fs-xs);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    animation: fadeIn 1s ease 1.5s both;
+}
+.scroll-arrow {
+    width: 20px;
+    height: 20px;
+    border-right: 2px solid rgba(255, 255, 255, 0.6);
+    border-bottom: 2px solid rgba(255, 255, 255, 0.6);
+    transform: rotate(45deg);
+    animation: bounce 1.5s ease infinite;
+}
+@keyframes bounce {
+    0%, 100% { transform: rotate(45deg) translateY(0); }
+    50%       { transform: rotate(45deg) translateY(6px); }
+}
+
+/* 通用動畫 */
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   3. ABOUT PREVIEW — 關於預覽區塊
+   ══════════════════════════════════════════════════════════ */
+
+.about-preview {
+    padding: var(--space-16) 0;
+    background-color: var(--color-bg); /* 淡色主題：暖白底 */
+}
+
+.about-preview-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-12);
+    align-items: center;
+}
+
+.about-preview-text h2 {
+    font-family: var(--font-heading);
+    font-size: var(--fs-2xl);
+    font-weight: var(--fw-bold);
+    line-height: var(--lh-tight);
+    margin-bottom: var(--space-4);
+    color: var(--color-text);
+}
+
+.about-preview-text p {
+    color: var(--color-text-muted);
+    line-height: var(--lh-loose);
+    margin-bottom: var(--space-5);
+}
+
+/* 數字統計 */
+.stats-row {
+    display: flex;
+    gap: var(--space-8);
+    margin-bottom: var(--space-5);
+}
+.stat-item .stat-number {
+    font-family: var(--font-heading);
+    font-size: var(--fs-2xl);
+    font-weight: var(--fw-black);
+    color: var(--color-accent);
+    line-height: 1;
+}
+.stat-item .stat-label {
+    font-size: var(--fs-xs);
+    color: var(--color-text-muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+/* 右側裝飾方塊 */
+.about-preview-visual {
+    position: relative;
+}
+.visual-box {
+    aspect-ratio: 1;
+    background: linear-gradient(135deg,
+        rgba(200, 50, 0, 0.05) 0%,
+        rgba(107, 47, 160, 0.08) 100%
+    );
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10rem;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+}
+.visual-box::before {
+    content: 'CODE\AART\ACODE\AART';
+    white-space: pre;
+    position: absolute;
+    font-family: var(--font-mono);
+    font-size: var(--fs-2xl);
+    color: rgba(200, 50, 0, 0.04);
+    letter-spacing: 0.2em;
+    line-height: 1.5;
+    text-align: center;
+    transform: rotate(-15deg) scale(1.5);
+    pointer-events: none;
+}
+
+@media (max-width: 768px) {
+    .about-preview-grid { grid-template-columns: 1fr; }
+    .about-preview-visual { display: none; }
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   4. FEATURED WORKS — 特色作品格
+   ══════════════════════════════════════════════════════════ */
+
+.featured-works {
+    padding: var(--space-16) 0;
+    background-color: var(--color-bg-2); /* 略深的米色，區隔上下區塊 */
+}
+
+/* 不對稱 Grid */
+.featured-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: 280px 280px;
+    gap: var(--space-3);
+}
+.featured-grid .work-card:nth-child(1) { grid-column: 1 / 3; }
+.featured-grid .work-card:nth-child(4) { grid-column: 2 / 4; }
+.featured-grid .work-thumb {
+    aspect-ratio: unset;
+    height: 100%;
+}
+.featured-grid .work-card { overflow: hidden; }
+
+@media (max-width: 768px) {
+    .featured-grid {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto;
+    }
+    .featured-grid .work-card:nth-child(1),
+    .featured-grid .work-card:nth-child(4) { grid-column: 1; }
+    .featured-grid .work-thumb {
+        aspect-ratio: 16 / 9;
+        height: auto;
+    }
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   5. CTA — 行動呼籲區塊
+   ══════════════════════════════════════════════════════════ */
+
+.cta-section {
+    padding: var(--space-20) 0;
+    text-align: center;
+    background: linear-gradient(
+        135deg,
+        var(--color-bg) 0%,
+        var(--color-bg-2) 100%
+    );
+}
+.cta-section h2 {
+    font-family: var(--font-heading);
+    font-size: var(--fs-2xl);
+    font-weight: var(--fw-bold);
+    margin-bottom: var(--space-3);
+    color: var(--color-text);
+}
+.cta-section p {
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-6);
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   6. 作品卡片補充（index.html 版）
+   以下 CSS 補充 works.html 原有的 .work-img 色彩定義，
+   讓首頁的特色作品格也能顯示正確的漸層色
+   ══════════════════════════════════════════════════════════ */
+
+.work-img           { width: 100%; height: 100%; background: var(--color-bg-3); }
+.work-img.w1        { background: linear-gradient(135deg, #0a0a2e 0%, #1a0a5e 50%, #c83200 100%); }
+.work-img.w3        { background: linear-gradient(45deg, #0d7377 0%, #14a085 50%, #ff8c00 100%); }
+.work-img.w4        { background: conic-gradient(from 0deg, #0a0a2e, #c83200, #6b2fa0, #0a0a2e); }
+.work-img.w5        { background: linear-gradient(180deg, #1a1a4e 0%, #2d2d8e 40%, #c83200 100%); }
+.work-img.w6        { background: radial-gradient(ellipse at center, #ff8c00 0%, #c83200 30%, #1a0a2e 80%); }
+.work-img.w7        { background: linear-gradient(135deg, #001a33 0%, #003366 50%, #0099ff 100%); }
+
+/* 作品卡片骨架（配合淡色主題）*/
+.work-card {
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: var(--color-bg-2);
+    cursor: pointer;
+    border: 1px solid var(--color-border);
+    transition: transform var(--transition-base),
+                box-shadow var(--transition-base);
+}
+.work-card:hover {
+    transform: translateY(-6px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--color-accent);
+}
+.work-card:hover .work-img { transform: scale(1.06); }
+
+/* Hover overlay */
+.work-thumb        { position: relative; overflow: hidden; }
+.work-overlay {
+    position: absolute;
+    inset: 0;
+    background: var(--color-overlay);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity var(--transition-base);
+}
+.work-card:hover .work-overlay { opacity: 1; }
+.overlay-content   { text-align: center; color: #fff; }
+.overlay-content h3 {
+    font-family: var(--font-heading);
+    font-size: var(--fs-lg);
+    margin-bottom: var(--space-1);
+}
+.overlay-content p {
+    font-size: var(--fs-xs);
+    color: rgba(255,255,255,0.8);
+    margin-bottom: var(--space-2);
+}
+.overlay-btn {
+    display: inline-block;
+    padding: 4px var(--space-3);
+    border: 1px solid rgba(255,255,255,0.7);
+    border-radius: 999px;
+    font-size: var(--fs-xs);
+    color: #fff;
+    transition: all var(--transition-base);
+}
+.overlay-btn:hover {
+    background: rgba(255,255,255,0.2);
+}

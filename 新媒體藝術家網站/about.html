@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<!--
+    about.html — 關於頁面
+    =====================================================
+    學習重點：
+    1. CSS3 Flexbox 左右分欄版面
+    2. CSS3 進度條動畫（@keyframes + transform）
+    3. CSS Grid 垂直時間軸設計
+    4. JavaScript IntersectionObserver 觸發動畫
+    5. CSS clip-path 幾何裁切效果
+    =====================================================
+-->
+<html lang="zh-Hant-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>關於 — 龍蝦俠 新媒體藝術家</title>
+
+    <link rel="stylesheet" href="css/reset.css">
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/style.css">
+
+    <style>
+
+        /* ── Hero Banner ───────────────────────────── */
+        .about-hero {
+            padding: var(--space-16) 0;
+            text-align: center;
+            background:
+                radial-gradient(ellipse at 30% 50%,
+                    rgba(255, 69, 0, 0.12) 0%,
+                    transparent 60%),
+                radial-gradient(ellipse at 70% 50%,
+                    rgba(100, 0, 255, 0.08) 0%,
+                    transparent 60%),
+                var(--color-bg);
+        }
+
+        .about-hero .page-tag {
+            font-size: var(--fs-xs);
+            letter-spacing: 0.3em;
+            text-transform: uppercase;
+            color: var(--color-accent);
+            margin-bottom: var(--space-3);
+        }
+
+        .about-hero h1 {
+            font-family: var(--font-heading);
+            font-size: var(--fs-3xl);
+            font-weight: var(--fw-black);
+            line-height: var(--lh-tight);
+            margin-bottom: var(--space-4);
+        }
+
+        /* 橘色強調文字 */
+        .about-hero h1 .highlight {
+            color: var(--color-accent);
+            /* CSS text-stroke：文字描邊效果
+               -webkit-text-stroke 是 WebKit 核心的前綴（Chrome/Safari 需要）*/
+            -webkit-text-stroke: 1px var(--color-accent);
+        }
+
+        .about-hero .tagline {
+            font-size: var(--fs-md);
+            color: var(--color-text-muted);
+            font-style: italic;     /* 斜體 */
+            font-family: var(--font-heading);
+        }
+
+        /* ══════════════════════════════════════════════
+           藝術家自述區塊
+           使用 Flexbox 左右並排：左圖右文
+           ══════════════════════════════════════════════ */
+        .statement-section {
+            padding: var(--space-16) 0;
+        }
+
+        .statement-grid {
+            display: flex;
+            align-items: center;
+            gap: var(--space-12);
+        }
+
+        /* 左側：藝術家照片 */
+        .statement-image {
+            flex: 0 0 360px;   /* flex-shrink: 0 → 不壓縮；固定 360px 寬 */
+            position: relative;
+        }
+
+        /* 照片容器：正方形，CSS clip-path 做出幾何形狀裁切 */
+        .portrait-wrap {
+            width: 360px;
+            height: 360px;
+            position: relative;
+
+            /* clip-path polygon：多邊形裁切
+               格式：polygon(x1 y1, x2 y2, x3 y3, ...)
+               這裡做出一個不規則的六邊形，有藝術感 */
+            clip-path: polygon(
+                10% 0%, 90% 0%,
+                100% 10%, 100% 90%,
+                90% 100%, 10% 100%,
+                0% 90%, 0% 10%
+            );
+            overflow: hidden;
+            transition: clip-path var(--transition-slow);
+        }
+
+        /* hover 時恢復正方形 */
+        .portrait-wrap:hover {
+            clip-path: polygon(
+                0% 0%, 100% 0%,
+                100% 0%, 100% 100%,
+                100% 100%, 0% 100%,
+                0% 100%, 0% 0%
+            );
+        }
+
+        /* 照片佔位：用 CSS 漸層模擬藝術家照片
+           實際使用時替換為 <img src="images/portrait.jpg"> */
+        .portrait-placeholder {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                135deg,
+                #1a0a2e 0%,
+                #ff4500 40%,
+                #ff8c00 70%,
+                #0a0a0a 100%
+            );
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8rem;         /* 超大 emoji 作為佔位頭像 */
+        }
+
+        /* 裝飾方塊：在照片背後的橘色邊框方塊 */
+        .portrait-decoration {
+            position: absolute;
+            top: 20px;
+            left: -20px;
+            width: 100%;
+            height: 100%;
+            border: 2px solid var(--color-accent);
+            opacity: 0.3;
+            clip-path: polygon(
+                10% 0%, 90% 0%,
+                100% 10%, 100% 90%,
+                90% 100%, 10% 100%,
+                0% 90%, 0% 10%
+            );
+            z-index: -1;     /* 在照片後面 */
+        }
+
+        /* 右側：文字內容 */
+        .statement-text {
+            flex: 1;   /* 佔用剩餘所有空間 */
+        }
+
+        .statement-text .section-tag {
+            display: inline-block;
+            font-size: var(--fs-xs);
+            font-weight: var(--fw-bold);
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--color-accent);
+            margin-bottom: var(--space-2);
+        }
+
+        .statement-text h2 {
+            font-family: var(--font-heading);
+            font-size: var(--fs-2xl);
+            font-weight: var(--fw-bold);
+            line-height: var(--lh-tight);
+            margin-bottom: var(--space-4);
+        }
+
+        .statement-text p {
+            color: var(--color-text-muted);
+            line-height: var(--lh-loose);
+            margin-bottom: var(--space-4);
+        }
+
+        .statement-text p strong {
+            color: var(--color-text);
+            font-weight: var(--fw-medium);
+        }
+
+        @media (max-width: 900px) {
+            .statement-grid {
+                flex-direction: column;   /* 手機版改為上下排列 */
+            }
+            .statement-image {
+                flex: none;
+                width: 100%;
+            }
+            .portrait-wrap {
+                width: 100%;
+                max-width: 320px;
+                height: 320px;
+                margin: 0 auto;
+            }
+        }
+
+        /* ══════════════════════════════════════════════
+           技能進度條區塊
+           ══════════════════════════════════════════════ */
+        .skills-section {
+            padding: var(--space-16) 0;
+            background-color: var(--color-bg-2);
+        }
+
+        .skills-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;  /* 兩欄 */
+            gap: var(--space-6) var(--space-12);
+            margin-top: var(--space-8);
+        }
+
+        .skill-item {
+            /* 預設隱藏（進場動畫用）*/
+        }
+
+        .skill-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--space-2);
+        }
+
+        .skill-name {
+            font-size: var(--fs-sm);
+            font-weight: var(--fw-medium);
+            letter-spacing: 0.05em;
+        }
+
+        .skill-percent {
+            font-size: var(--fs-xs);
+            color: var(--color-accent);
+            font-weight: var(--fw-bold);
+        }
+
+        /* 進度條軌道（灰色背景）*/
+        .skill-bar-track {
+            height: 4px;
+            background-color: var(--color-bg-3);
+            border-radius: var(--radius-full);
+            overflow: hidden;
+        }
+
+        /* 進度條填充（橘紅色）
+           初始寬度為 0，JS 觸發後才設定實際寬度
+           transition 讓寬度變化產生動畫 */
+        .skill-bar-fill {
+            height: 100%;
+            width: 0;   /* 初始值：0（不可見）*/
+            background: linear-gradient(
+                90deg,
+                var(--color-accent),
+                #ff8c00   /* 橘黃色 */
+            );
+            border-radius: var(--radius-full);
+            transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+            /* 相對定位，用於光暈偽元素 */
+            position: relative;
+        }
+
+        /* 進度條右端的發光點 */
+        .skill-bar-fill::after {
+            content: '';
+            position: absolute;
+            right: -1px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #ff8c00;
+            box-shadow: 0 0 8px #ff8c00;
+        }
+
+        @media (max-width: 768px) {
+            .skills-grid {
+                grid-template-columns: 1fr;  /* 手機單欄 */
+            }
+        }
+
+        /* ══════════════════════════════════════════════
+           時間軸區塊
+           使用 CSS Grid 製作垂直時間軸
+
+           版面概念：
+           ┌──────┬─────────────────────────┐
+           │ 年份 │ 中線 │ 事件說明           │
+           └──────┴─────────────────────────┘
+
+           CSS Grid：[時間欄] [中線] [內容欄]
+           ══════════════════════════════════════════════ */
+        .timeline-section {
+            padding: var(--space-16) 0;
+        }
+
+        .timeline {
+            position: relative;
+            margin-top: var(--space-10);
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* 垂直中線 */
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 50%;                  /* 水平置中 */
+            transform: translateX(-50%);
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: linear-gradient(
+                to bottom,
+                transparent,
+                var(--color-accent) 10%,
+                var(--color-accent) 90%,
+                transparent
+            );
+        }
+
+        .timeline-item {
+            display: grid;
+            /* 左欄：日期 | 中間：節點 | 右欄：內容 */
+            grid-template-columns: 1fr 40px 1fr;
+            gap: 0 var(--space-4);
+            margin-bottom: var(--space-8);
+            align-items: center;
+        }
+
+        /* 奇數項目：內容在右邊（正常順序）*/
+        .timeline-item:nth-child(odd) .timeline-date {
+            text-align: right;   /* 日期靠右對齊 */
+            order: 1;
+        }
+        .timeline-item:nth-child(odd) .timeline-node {
+            order: 2;
+        }
+        .timeline-item:nth-child(odd) .timeline-content {
+            order: 3;
+        }
+
+        /* 偶數項目：內容在左邊（交錯排列，更有節奏感）*/
+        .timeline-item:nth-child(even) .timeline-date {
+            text-align: left;
+            order: 3;
+        }
+        .timeline-item:nth-child(even) .timeline-node {
+            order: 2;
+        }
+        .timeline-item:nth-child(even) .timeline-content {
+            text-align: right;
+            order: 1;
+        }
+
+        /* 時間軸節點（圓點）*/
+        .timeline-node {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: var(--z-card);
+        }
+
+        .timeline-dot {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background-color: var(--color-accent);
+            border: 3px solid var(--color-bg);
+            box-shadow: 0 0 0 2px var(--color-accent),
+                        var(--shadow-accent);
+            transition: transform var(--transition-bounce);
+        }
+
+        .timeline-item:hover .timeline-dot {
+            transform: scale(1.4);
+        }
+
+        /* 年份 */
+        .timeline-date {
+            font-size: var(--fs-xs);
+            font-weight: var(--fw-bold);
+            letter-spacing: 0.1em;
+            color: var(--color-accent);
+        }
+
+        /* 事件說明 */
+        .timeline-content h3 {
+            font-size: var(--fs-base);
+            font-weight: var(--fw-bold);
+            margin-bottom: var(--space-1);
+        }
+
+        .timeline-content p {
+            font-size: var(--fs-sm);
+            color: var(--color-text-muted);
+            line-height: var(--lh-normal);
+        }
+
+        /* 手機版時間軸改為單欄 */
+        @media (max-width: 640px) {
+            .timeline::before {
+                left: 16px;
+            }
+
+            .timeline-item {
+                grid-template-columns: 40px 1fr;
+                grid-template-rows: auto auto;
+            }
+
+            .timeline-item:nth-child(odd) .timeline-date,
+            .timeline-item:nth-child(even) .timeline-date {
+                order: 2; grid-column: 2;
+                text-align: left;
+            }
+            .timeline-item:nth-child(odd) .timeline-node,
+            .timeline-item:nth-child(even) .timeline-node {
+                order: 1; grid-column: 1; grid-row: 1 / 3;
+                align-self: start;
+                padding-top: 4px;
+            }
+            .timeline-item:nth-child(odd) .timeline-content,
+            .timeline-item:nth-child(even) .timeline-content {
+                order: 3; grid-column: 2;
+                text-align: left;
+            }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="page-loader">
+        <div class="loader-ring"></div>
+        <p class="loader-text">Loading</p>
+    </div>
+
+    <header class="site-header">
+        <nav class="site-nav">
+            <div class="container">
+                <a href="index.html" class="nav-logo">龍蝦俠</a>
+                <ul class="nav-links">
+                    <li><a href="index.html">首頁</a></li>
+                    <li><a href="about.html">關於</a></li>
+                    <li><a href="works.html">作品集</a></li>
+                    <li><a href="interactive.html">互動體驗</a></li>
+                    <li><a href="chat.html">聊天室</a></li>
+                    <li><a href="contact.html">聯絡</a></li>
+                </ul>
+                <button class="nav-toggle" aria-label="開啟選單" aria-expanded="false">
+                    <span></span><span></span><span></span>
+                </button>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+
+        <!-- Hero -->
+        <section class="about-hero">
+            <div class="container">
+                <p class="page-tag reveal">About</p>
+                <h1 class="reveal reveal-delay-1">
+                    我是<span class="highlight">龍蝦俠</span>
+                </h1>
+                <p class="tagline reveal reveal-delay-2">
+                    「我用代碼畫畫，用演算法說故事。」
+                </p>
+            </div>
+        </section>
+
+        <!-- 藝術家自述 -->
+        <section class="statement-section">
+            <div class="container">
+                <div class="statement-grid">
+
+                    <!-- 左：照片 -->
+                    <div class="statement-image reveal-from-left">
+                        <div class="portrait-decoration"></div>
+                        <div class="portrait-wrap">
+                            <div class="portrait-placeholder">🦞</div>
+                        </div>
+                    </div>
+
+                    <!-- 右：文字 -->
+                    <div class="statement-text reveal-from-right">
+                        <span class="section-tag">藝術家自述</span>
+                        <h2>當代碼遇上藝術</h2>
+
+                        <p>
+                            龍蝦俠是一位來自台灣的<strong>新媒體藝術家</strong>，
+                            長期探索數位技術與人類感知之間的交界地帶。
+                            他相信，演算法不只是工具，而是一種新的視覺語言。
+                        </p>
+
+                        <p>
+                            從最初接觸 p5.js 開始，龍蝦俠開始思考：
+                            <strong>「如果每一行程式碼都是一筆畫，
+                            那麼一個完整的演算法就是一幅畫？」</strong>
+                            這個問題驅動他持續實驗，探索生成藝術、
+                            互動裝置，以及聲音與影像的即時演算。
+                        </p>
+
+                        <p>
+                            目前就讀藝術大學新媒體藝術學系，
+                            持續在校內外展出作品，並積極參與
+                            開源創作社群，分享自己的創作代碼。
+                        </p>
+
+                        <a href="works.html" class="btn btn--primary">
+                            查看作品集 →
+                        </a>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- 技能進度條 -->
+        <section class="skills-section section">
+            <div class="container">
+                <div class="section-header">
+                    <span class="section-tag">Skills</span>
+                    <h2 class="section-title reveal">技術能力</h2>
+                    <p class="section-subtitle reveal reveal-delay-1">
+                        跨越藝術與技術的能力光譜
+                    </p>
+                </div>
+
+                <!-- 技能列表
+                     data-percent：自訂 HTML 屬性，JS 會讀取這個值
+                     來設定進度條寬度 -->
+                <div class="skills-grid">
+
+                    <div class="skill-item reveal" data-percent="90">
+                        <div class="skill-header">
+                            <span class="skill-name">HTML5 / CSS3</span>
+                            <span class="skill-percent">90%</span>
+                        </div>
+                        <div class="skill-bar-track">
+                            <div class="skill-bar-fill"></div>
+                        </div>
+                    </div>
+
+                    <div class="skill-item reveal reveal-delay-1" data-percent="80">
+                        <div class="skill-header">
+                            <span class="skill-name">JavaScript</span>
+                            <span class="skill-percent">80%</span>
+                        </div>
+                        <div class="skill-bar-track">
+                            <div class="skill-bar-fill"></div>
+                        </div>
+                    </div>
+
+                    <div class="skill-item reveal reveal-delay-2" data-percent="85">
+                        <div class="skill-header">
+                            <span class="skill-name">p5.js 生成藝術</span>
+                            <span class="skill-percent">85%</span>
+                        </div>
+                        <div class="skill-bar-track">
+                            <div class="skill-bar-fill"></div>
+                        </div>
+                    </div>
+
+                    <div class="skill-item reveal reveal-delay-3" data-percent="75">
+                        <div class="skill-header">
+                            <span class="skill-name">AI Art 生成</span>
+                            <span class="skill-percent">75%</span>
+                        </div>
+                        <div class="skill-bar-track">
+                            <div class="skill-bar-fill"></div>
+                        </div>
+                    </div>
+
+                    <div class="skill-item reveal reveal-delay-4" data-percent="70">
+                        <div class="skill-header">
+                            <span class="skill-name">互動裝置設計</span>
+                            <span class="skill-percent">70%</span>
+                        </div>
+                        <div class="skill-bar-track">
+                            <div class="skill-bar-fill"></div>
+                        </div>
+                    </div>
+
+                    <div class="skill-item reveal reveal-delay-5" data-percent="65">
+                        <div class="skill-header">
+                            <span class="skill-name">3D WebGL / GLSL</span>
+                            <span class="skill-percent">65%</span>
+                        </div>
+                        <div class="skill-bar-track">
+                            <div class="skill-bar-fill"></div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- 時間軸 -->
+        <section class="timeline-section section">
+            <div class="container">
+                <div class="section-header">
+                    <span class="section-tag">Journey</span>
+                    <h2 class="section-title reveal">創作歷程</h2>
+                </div>
+
+                <div class="timeline">
+
+                    <div class="timeline-item reveal">
+                        <div class="timeline-date">2020</div>
+                        <div class="timeline-node"><div class="timeline-dot"></div></div>
+                        <div class="timeline-content">
+                            <h3>踏入新媒體藝術</h3>
+                            <p>第一次接觸 Processing，發現「用程式畫圖」的可能性。</p>
+                        </div>
+                    </div>
+
+                    <div class="timeline-item reveal reveal-delay-1">
+                        <div class="timeline-date">2021</div>
+                        <div class="timeline-node"><div class="timeline-dot"></div></div>
+                        <div class="timeline-content">
+                            <h3>進入新媒體藝術學系</h3>
+                            <p>開始系統性學習互動藝術、聲音藝術與數位影像。</p>
+                        </div>
+                    </div>
+
+                    <div class="timeline-item reveal reveal-delay-2">
+                        <div class="timeline-date">2022</div>
+                        <div class="timeline-node"><div class="timeline-dot"></div></div>
+                        <div class="timeline-content">
+                            <h3>首次展覽「粒子海」</h3>
+                            <p>以 p5.js 生成粒子系統，於校內展出，獲得肯定。</p>
+                        </div>
+                    </div>
+
+                    <div class="timeline-item reveal reveal-delay-3">
+                        <div class="timeline-date">2023</div>
+                        <div class="timeline-node"><div class="timeline-dot"></div></div>
+                        <div class="timeline-content">
+                            <h3>AI Art 創作起點</h3>
+                            <p>開始探索 Stable Diffusion 與生成對抗網路（GAN），創作「人機對話」系列。</p>
+                        </div>
+                    </div>
+
+                    <div class="timeline-item reveal reveal-delay-4">
+                        <div class="timeline-date">2024</div>
+                        <div class="timeline-node"><div class="timeline-dot"></div></div>
+                        <div class="timeline-content">
+                            <h3>建立個人網站</h3>
+                            <p>以 HTML5 + CSS3 + p5.js 建構本網站，整合所有創作媒材。</p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="site-footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <p class="footer-logo">龍蝦俠</p>
+                    <p>新媒體藝術家<br>以代碼為畫筆，以螢幕為畫布</p>
+                </div>
+                <div class="footer-nav">
+                    <h4>頁面</h4>
+                    <ul>
+                        <li><a href="index.html">首頁</a></li>
+                        <li><a href="about.html">關於</a></li>
+                        <li><a href="works.html">作品集</a></li>
+                        <li><a href="interactive.html">互動體驗</a></li>
+                        <li><a href="chat.html">聊天室</a></li>
+                    <li><a href="chat.html">聊天室</a></li>
+                        <li><a href="contact.html">聯絡</a></li>
+                    </ul>
+                </div>
+                <div class="footer-social">
+                    <h4>社群</h4>
+                    <ul>
+                        <li><a href="#" target="_blank" rel="noopener">Instagram</a></li>
+                        <li><a href="#" target="_blank" rel="noopener">GitHub</a></li>
+                        <li><a href="#" target="_blank" rel="noopener">Behance</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>© 2024 龍蝦俠 · 新媒體藝術家 · 保留所有權利</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/main.js"></script>
+
+    <!-- ══════════════════════════════════════════════
+         頁面專屬 JS：技能進度條動畫
+         ══════════════════════════════════════════════
+
+         【運作原理】
+         用 IntersectionObserver 監看每個 .skill-item
+         當它進入視窗時，讀取 data-percent 屬性，
+         設定 .skill-bar-fill 的寬度，觸發 CSS transition 動畫
+    ══════════════════════════════════════════════════ -->
+    <script>
+
+        /* 技能進度條動畫 */
+        const skillItems = document.querySelectorAll('.skill-item');
+
+        const skillObserver = new IntersectionObserver(
+            function (entries) {
+                entries.forEach(function (entry) {
+                    if (entry.isIntersecting) {
+                        const item = entry.target;
+
+                        /* 讀取 data-percent 自訂屬性 */
+                        const percent = item.getAttribute('data-percent');
+
+                        /* 找到這個 skill-item 裡面的 .skill-bar-fill */
+                        const fill = item.querySelector('.skill-bar-fill');
+
+                        /* 設定寬度（CSS transition 會自動產生動畫）*/
+                        if (fill && percent) {
+                            fill.style.width = percent + '%';
+                        }
+
+                        /* 觸發後停止觀察（只播放一次）*/
+                        skillObserver.unobserve(item);
+                    }
+                });
+            },
+            { threshold: 0.5 }   /* 元素出現 50% 時觸發 */
+        );
+
+        skillItems.forEach(function (item) {
+            skillObserver.observe(item);
+        });
+
+    </script>
+
+</body>
+</html>

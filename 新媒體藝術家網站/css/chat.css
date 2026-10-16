@@ -1,0 +1,501 @@
+/* ============================================================
+   chat.css — 即時聊天室專屬樣式
+   ============================================================
+
+   【載入順序】
+   本檔案需在 style.css 之後引入：
+   1. reset.css
+   2. variables.css
+   3. style.css
+   4. chat.css  ← 本檔案（覆寫或補充頁面專屬樣式）
+
+   【設計概念】
+   聊天室頁面以「終端機 / 對話框」為視覺隱喻，
+   配合龍蝦俠網站的暖白藝廊基調，使用簡潔的卡片式佈局。
+   左右分欄：左側顯示聊天記錄，右側顯示上線人數與說明。
+   ============================================================ */
+
+
+/* ══════════════════════════════════════════════════════════
+   1. 頁面主要版型
+   ══════════════════════════════════════════════════════════ */
+
+/* 聊天頁面的 Hero 區塊（較矮的標題列，不像首頁全屏） */
+.chat-hero {
+    padding: var(--space-12) 0 var(--space-6);
+    text-align: center;
+    border-bottom: 1px solid var(--color-border);
+    background: linear-gradient(
+        135deg,
+        var(--color-bg) 0%,
+        var(--color-bg-2) 100%
+    );
+}
+
+.chat-hero__tag {
+    /* 「LIVE CHAT」小標籤 */
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    font-size: var(--fs-xs);
+    font-family: var(--font-mono);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+    margin-bottom: var(--space-2);
+}
+
+/* 即時狀態指示燈（綠色閃爍點） */
+.chat-hero__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: var(--radius-full);
+    background-color: #22c55e; /* 綠色：表示連線中 */
+    display: inline-block;
+    animation: pulse-dot 1.8s ease-in-out infinite;
+}
+
+/* 狀態燈動畫：閃爍脈衝效果 */
+@keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.4; transform: scale(0.8); }
+}
+
+.chat-hero h1 {
+    font-family: var(--font-heading);
+    font-size: var(--fs-2xl);
+    font-weight: var(--fw-black);
+    color: var(--color-text);
+    margin-bottom: var(--space-2);
+}
+
+.chat-hero p {
+    color: var(--color-text-muted);
+    font-size: var(--fs-md);
+    max-width: 560px;
+    margin: 0 auto;
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   2. 聊天室主要佈局（兩欄 Grid）
+   ══════════════════════════════════════════════════════════
+
+   【CSS Grid 說明】
+   左側：聊天主區（佔 2/3 寬度）
+   右側：側邊資訊欄（佔 1/3 寬度）
+
+   grid-template-columns: 2fr 1fr
+   → 左欄佔 2 個單位，右欄佔 1 個單位
+   ══════════════════════════════════════════════════════════ */
+
+.chat-layout {
+    display: grid;
+    grid-template-columns: 2fr 1fr; /* 主區 : 側欄 = 2 : 1 */
+    gap: var(--space-4);
+    padding: var(--space-6) 0 var(--space-12);
+    align-items: start; /* 兩欄各自獨立高度，不互相拉撐 */
+}
+
+/* 手機版：單欄排列 */
+@media (max-width: 900px) {
+    .chat-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   3. 聊天主區（左側）
+   ══════════════════════════════════════════════════════════ */
+
+.chat-main {
+    display: flex;
+    flex-direction: column; /* 子元素垂直排列 */
+    gap: var(--space-3);
+}
+
+/* 訊息顯示區（可捲動的容器） */
+.chat-messages {
+    background: var(--color-bg-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-3);
+    height: 420px;        /* 固定高度，超出時可捲動 */
+    overflow-y: auto;     /* 垂直方向超出時顯示捲軸 */
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+
+    /* 自訂捲軸樣式（WebKit 瀏覽器支援） */
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
+}
+
+/* WebKit 捲軸細部設定（Chrome / Safari） */
+.chat-messages::-webkit-scrollbar {
+    width: 6px;
+}
+.chat-messages::-webkit-scrollbar-track {
+    background: transparent;
+}
+.chat-messages::-webkit-scrollbar-thumb {
+    background-color: var(--color-border);
+    border-radius: var(--radius-full);
+}
+
+/* 聊天室空狀態提示（尚無訊息時顯示） */
+.chat-empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: var(--color-text-dim);
+    font-size: var(--fs-sm);
+    gap: var(--space-2);
+    padding: var(--space-6) 0;
+}
+
+.chat-empty__icon {
+    font-size: 3.2rem; /* 表情符號大一點 */
+    opacity: 0.5;
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   4. 單則訊息樣式
+   ══════════════════════════════════════════════════════════
+
+   每則訊息的結構：
+   <div class="msg">
+       <div class="msg__header">
+           <span class="msg__name">名稱</span>
+           <span class="msg__time">時間</span>
+       </div>
+       <div class="msg__body">訊息內容</div>
+   </div>
+   ══════════════════════════════════════════════════════════ */
+
+.msg {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: var(--space-2) var(--space-2);
+    border-radius: var(--radius-md);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    transition: background var(--transition-fast);
+
+    /* 進場動畫：每則新訊息由下滑入 */
+    animation: msg-enter 0.3s ease both;
+}
+
+@keyframes msg-enter {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 自己發的訊息（右對齊，橘色強調） */
+.msg--self {
+    background: rgba(200, 50, 0, 0.06);
+    border-color: rgba(200, 50, 0, 0.2);
+    align-self: flex-end;
+    max-width: 80%;
+}
+
+/* 系統訊息（進入/離開通知，置中顯示） */
+.msg--system {
+    align-self: center;
+    background: transparent;
+    border: none;
+    font-size: var(--fs-xs);
+    color: var(--color-text-dim);
+    font-style: italic;
+    padding: 2px var(--space-2);
+}
+
+.msg__header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.msg__name {
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-bold);
+    color: var(--color-accent); /* 名字用橘紅色顯示 */
+}
+
+.msg__time {
+    font-size: var(--fs-xs);
+    color: var(--color-text-dim);
+    font-family: var(--font-mono);
+    margin-left: auto; /* 推到最右側 */
+}
+
+.msg__body {
+    font-size: var(--fs-base);
+    color: var(--color-text);
+    line-height: var(--lh-normal);
+    word-break: break-word; /* 長字串強制換行，防止溢出 */
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   5. 輸入表單
+   ══════════════════════════════════════════════════════════ */
+
+.chat-form {
+    background: var(--color-bg-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.chat-form__row {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+}
+
+/* 輸入框共用樣式 */
+.chat-input {
+    flex: 1;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-1) var(--space-2);
+    font-size: var(--fs-base);
+    font-family: var(--font-body);
+    color: var(--color-text);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    outline: none;
+}
+
+.chat-input:focus {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px var(--color-accent-glow);
+}
+
+.chat-input::placeholder {
+    color: var(--color-text-dim);
+}
+
+/* 名稱輸入框（比訊息框窄） */
+.chat-input--name {
+    max-width: 180px;
+    flex: 0 0 180px; /* 固定寬度，不伸縮 */
+}
+
+/* 訊息輸入框（可換行的 textarea） */
+.chat-input--message {
+    resize: none;   /* 禁止使用者拖曳調整大小 */
+    height: 72px;
+    line-height: var(--lh-normal);
+    padding-top: var(--space-1);
+}
+
+/* 送出按鈕 */
+.chat-send-btn {
+    background: var(--color-accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-md);
+    padding: var(--space-1) var(--space-3);
+    font-size: var(--fs-base);
+    font-weight: var(--fw-bold);
+    font-family: var(--font-body);
+    cursor: pointer;
+    transition: background var(--transition-fast), transform var(--transition-fast);
+    white-space: nowrap;
+    align-self: flex-end; /* 對齊到訊息輸入框底部 */
+    height: 72px;         /* 與訊息輸入框等高 */
+}
+
+.chat-send-btn:hover {
+    background: var(--color-accent-dark);
+    transform: translateY(-1px);
+}
+
+.chat-send-btn:active {
+    transform: translateY(0);
+}
+
+.chat-send-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* 表單底部：字數提示 + 快捷鍵說明 */
+.chat-form__hint {
+    font-size: var(--fs-xs);
+    color: var(--color-text-dim);
+    text-align: right;
+    font-family: var(--font-mono);
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   6. 連線狀態列
+   ══════════════════════════════════════════════════════════ */
+
+.chat-status-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    font-size: var(--fs-xs);
+    font-family: var(--font-mono);
+    color: var(--color-text-muted);
+    padding: var(--space-1) 0;
+}
+
+/* 連線狀態顏色動態切換（透過 JS 切換 class） */
+.chat-status-bar__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: var(--radius-full);
+    background: #94a3b8; /* 預設：灰色（連線中...） */
+    transition: background var(--transition-base);
+}
+
+/* 已連線 → 綠色 */
+.chat-status-bar--connected .chat-status-bar__dot {
+    background: #22c55e;
+    animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* 離線 → 紅色 */
+.chat-status-bar--disconnected .chat-status-bar__dot {
+    background: #ef4444;
+}
+
+/* 錯誤 → 黃色 */
+.chat-status-bar--error .chat-status-bar__dot {
+    background: #f59e0b;
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   7. 右側資訊側欄
+   ══════════════════════════════════════════════════════════ */
+
+.chat-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+/* 側欄卡片 */
+.chat-card {
+    background: var(--color-bg-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-3);
+}
+
+.chat-card__title {
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-2);
+    font-family: var(--font-mono);
+}
+
+/* 即時統計數字 */
+.chat-stat {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--fs-sm);
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-1);
+}
+
+.chat-stat__number {
+    font-size: var(--fs-xl);
+    font-weight: var(--fw-black);
+    color: var(--color-accent);
+    font-family: var(--font-heading);
+    line-height: 1;
+}
+
+/* 說明文字區 */
+.chat-info {
+    font-size: var(--fs-sm);
+    color: var(--color-text-muted);
+    line-height: var(--lh-normal);
+}
+
+.chat-info p + p {
+    margin-top: var(--space-2);
+}
+
+/* 規則清單 */
+.chat-rules {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    font-size: var(--fs-sm);
+    color: var(--color-text-muted);
+}
+
+.chat-rules li::before {
+    content: '→ ';
+    color: var(--color-accent);
+    font-weight: var(--fw-bold);
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   8. Firebase 設定提示卡（開發用，上線前可隱藏）
+   ══════════════════════════════════════════════════════════ */
+
+.chat-config-notice {
+    background: rgba(245, 158, 11, 0.08); /* 淡黃色背景 */
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: var(--radius-lg);
+    padding: var(--space-3);
+    margin-bottom: var(--space-4);
+    font-size: var(--fs-sm);
+    color: var(--color-text);
+    display: none; /* 預設隱藏，偵測到未設定 key 時由 JS 顯示 */
+}
+
+.chat-config-notice.is-visible {
+    display: block;
+}
+
+.chat-config-notice__title {
+    font-weight: var(--fw-bold);
+    color: #f59e0b;
+    margin-bottom: var(--space-1);
+}
+
+/* 程式碼區塊（顯示設定範例） */
+.chat-config-notice code {
+    display: block;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2);
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    margin-top: var(--space-2);
+    white-space: pre-wrap; /* 保留換行，但允許自動斷行 */
+    overflow-x: auto;
+}
